@@ -1,22 +1,27 @@
-// app.js
+// =========================================================
+// APP.JS - VERSÃO COM CARREGAMENTO DE FOTOS "BLINDADO"
+// =========================================================
 
 document.addEventListener("DOMContentLoaded", () => {
     const containerVideos = document.getElementById("lista-videos");
+    
     // Carrega os vídeos na tela inicial
-    LISTA_DE_VIDEOS.forEach(video => {
-        const card = document.createElement("div");
-        card.className = "card-video";
-        card.onclick = () => carregarRanking(video); 
+    if(typeof LISTA_DE_VIDEOS !== 'undefined') {
+        LISTA_DE_VIDEOS.forEach(video => {
+            const card = document.createElement("div");
+            card.className = "card-video";
+            card.onclick = () => carregarRanking(video); 
 
-        card.innerHTML = `
-            <img src="${video.thumb}" alt="Thumb">
-            <div class="card-info">
-                <span class="card-title">${video.titulo}</span>
-                <span class="card-date">${video.data}</span>
-            </div>
-        `;
-        containerVideos.appendChild(card);
-    });
+            card.innerHTML = `
+                <img src="${video.thumb}" alt="Thumb">
+                <div class="card-info">
+                    <span class="card-title">${video.titulo}</span>
+                    <span class="card-date">${video.data}</span>
+                </div>
+            `;
+            containerVideos.appendChild(card);
+        });
+    }
 });
 
 let dadosAtuais = []; 
@@ -33,33 +38,62 @@ function carregarRanking(video) {
             dadosAtuais = json.placar; 
             renderizarLista(dadosAtuais); 
         })
-        .catch(erro => console.error("Erro ao ler JSON:", erro));
+        .catch(erro => {
+            console.error("Erro ao ler JSON:", erro);
+            document.getElementById("lista-jogadores").innerHTML = "<p style='text-align:center; color:#ff4444'>Erro ao carregar o arquivo da partida.</p>";
+        });
+}
+
+// --- AQUI ESTÁ A MÁGICA QUE VOCÊ PEDIU ---
+// Função auxiliar para gerar a tag de imagem igual ao seu código de exemplo
+function gerarHtmlAvatar(nome, urlFotoOriginal) {
+    const nomeLimpo = nome.replace('@', '').trim();
+    
+    // 1. Tenta usar a foto que veio no JSON, se não tiver, tenta adivinhar pelo Unavatar
+    // O segredo do seu código: adicionar um timestamp para forçar atualização
+    const timestamp = new Date().getTime(); 
+    
+    // Se a URL original vier vazia do Unity, montamos a do Unavatar
+    let srcImagem = urlFotoOriginal;
+    if (!srcImagem || srcImagem === "") {
+        // Tenta buscar no TikTok/Instagram genericamente
+        srcImagem = `https://unavatar.io/${nomeLimpo}?ttl=1h`;
+    }
+
+    // Link de backup (Iniciais coloridas) igual ao seu código
+    const backupAvatar = `https://ui-avatars.com/api/?name=${nome}&background=random&color=fff&size=128`;
+
+    // RETORNA O HTML COM A PROTEÇÃO "no-referrer"
+    // Essa tag 'referrerpolicy' é o segredo para o TikTok não bloquear a imagem
+    return `
+        <img src="${srcImagem}" 
+             class="foto-perfil" 
+             referrerpolicy="no-referrer" 
+             onerror="this.onerror=null; this.src='${backupAvatar}'">
+    `;
 }
 
 function renderizarLista(lista) {
     const container = document.getElementById("lista-jogadores");
     container.innerHTML = "";
     
-    // Mostra a lista completa
     const fragmento = document.createDocumentFragment();
 
     lista.forEach(jogador => {
         const div = document.createElement("div");
         div.className = "linha-jogador";
         
-        // --- AQUI A MUDANÇA: CLICAR NO JOGADOR ABRE O PERFIL ---
+        // Clique para abrir perfil
         div.onclick = () => abrirPerfilCompleto(jogador.nome);
         div.style.cursor = "pointer"; 
-        // -------------------------------------------------------
 
         let classeRank = "rank-comum";
         if(jogador.posicao === 1) classeRank = "rank-1";
         else if(jogador.posicao === 2) classeRank = "rank-2";
         else if(jogador.posicao === 3) classeRank = "rank-3";
 
-        // Avatar simples (Iniciais)
-        let iniciais = jogador.nome.substring(0, 2).toUpperCase();
-        let avatarHtml = `<div class="foto-perfil" style="background:${stringToColor(jogador.nome)}; display:inline-flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:14px;">${iniciais}</div>`;
+        // GERA O AVATAR USANDO A LÓGICA NOVA
+        const avatarHtml = gerarHtmlAvatar(jogador.nome, jogador.foto_url);
 
         div.innerHTML = `
             <div class="rank-box ${classeRank}">#${jogador.posicao}</div>
@@ -73,44 +107,59 @@ function renderizarLista(lista) {
     });
 
     container.appendChild(fragmento);
+    
+    // Contador no final
+    const contador = document.createElement("div");
+    contador.style.padding = "15px";
+    contador.style.textAlign = "center";
+    contador.style.color = "#666";
+    contador.style.fontSize = "0.8em";
+    contador.innerText = `Total: ${lista.length} Jogadores`;
+    container.appendChild(contador);
 }
 
 // =========================================================
-// SISTEMA DE PERFIL GLOBAL (A Parte Importante)
+// SISTEMA DE PERFIL (Também atualizado com a foto certa)
 // =========================================================
 
 async function abrirPerfilCompleto(nomeJogador) {
-    // 1. Abre o Modal e mostra "Carregando"
     const modal = document.getElementById("modal-perfil");
     modal.style.display = "block";
     
     document.getElementById("perfil-nome").innerText = nomeJogador;
-    document.getElementById("perfil-avatar").innerText = nomeJogador.substring(0,2).toUpperCase();
-    document.getElementById("perfil-avatar").style.backgroundColor = stringToColor(nomeJogador);
     
-    document.getElementById("perfil-historico").innerHTML = "<p style='text-align:center; padding:20px'>Analisando histórico de batalhas...</p>";
+    // Limpa o avatar anterior e coloca um carregando
+    const divAvatar = document.getElementById("perfil-avatar");
+    divAvatar.innerHTML = ""; 
+    divAvatar.style.background = "transparent";
+    divAvatar.style.border = "none";
+    divAvatar.style.boxShadow = "none";
+    
+    // Aplica a mesma lógica de foto no perfil grande
+    // Aqui usamos um truque: criamos a imagem grande usando a mesma função
+    const imgHtml = gerarHtmlAvatar(nomeJogador, "");
+    // Ajustamos o estilo via replace para caber no círculo grande
+    divAvatar.innerHTML = imgHtml.replace('class="foto-perfil"', 'style="width:100%; height:100%; object-fit:cover; border-radius:50%; border:4px solid #fff;"');
 
-    // 2. Variáveis para somar os dados
+    document.getElementById("perfil-historico").innerHTML = "<p style='text-align:center; padding:20px'>Analisando histórico...</p>";
+
+    // Zera stats
     let totalKills = 0;
     let totalVitorias = 0;
     let partidasJogadas = 0;
     let historicoHTML = "";
 
-    // 3. Varre TODOS os vídeos configurados no config.js
-    // Isso acontece em paralelo para ser rápido
+    // Busca dados em todos os arquivos
     const promessas = LISTA_DE_VIDEOS.map(video => 
         fetch(video.arquivo).then(res => res.ok ? res.json() : null)
     );
 
     const resultados = await Promise.all(promessas);
 
-    // 4. Analisa os resultados
     resultados.forEach((dadosJson, index) => {
-        if(!dadosJson) return; // Pula se deu erro no arquivo
+        if(!dadosJson) return;
 
         const tituloVideo = LISTA_DE_VIDEOS[index].titulo;
-        
-        // Procura o jogador nesta partida específica
         const jogadorNaPartida = dadosJson.placar.find(p => p.nome === nomeJogador);
 
         if (jogadorNaPartida) {
@@ -118,7 +167,6 @@ async function abrirPerfilCompleto(nomeJogador) {
             totalKills += jogadorNaPartida.kills;
             if (jogadorNaPartida.posicao === 1) totalVitorias++;
 
-            // Cria o item da lista
             let classePos = "pos-ruim";
             let textoPos = `#${jogadorNaPartida.posicao}`;
             
@@ -137,13 +185,12 @@ async function abrirPerfilCompleto(nomeJogador) {
         }
     });
 
-    // 5. Atualiza a tela com os números finais
     document.getElementById("stat-vitorias").innerText = totalVitorias;
     document.getElementById("stat-kills").innerText = totalKills;
     document.getElementById("stat-partidas").innerText = partidasJogadas;
     
     if(historicoHTML === "") {
-        document.getElementById("perfil-historico").innerHTML = "<p>Nenhuma partida encontrada (estranho...).</p>";
+        document.getElementById("perfil-historico").innerHTML = "<p style='text-align:center; padding:20px; color:#888'>Nenhum registro encontrado.</p>";
     } else {
         document.getElementById("perfil-historico").innerHTML = historicoHTML;
     }
@@ -153,7 +200,6 @@ function fecharPerfil() {
     document.getElementById("modal-perfil").style.display = "none";
 }
 
-// Fecha se clicar fora
 window.onclick = function(event) {
     const modal = document.getElementById("modal-perfil");
     if (event.target == modal) fecharPerfil();
@@ -182,3 +228,4 @@ function stringToColor(str) {
     }
     return color;
 }
+
