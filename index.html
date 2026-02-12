@@ -3,36 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JS Tech - Rankings Oficiais</title>
+    <title>Batalha dos inscritos - Rankings Oficiais</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
 
     <header>
-        <h1>JS Tech Arena</h1>
-        <p>Consulte sua colocação oficial nas batalhas</p>
+        <h1>Batalha dos inscritos - Arena</h1>
+        <p>Sistema Oficial de Estatísticas</p>
     </header>
 
     <div class="container">
-        
         <div id="secao-videos">
-            <h2>🎥 Selecione a Batalha</h2>
-            <div class="grid-videos" id="lista-videos">
-                </div>
+            <h2><i class="fas fa-video"></i> Batalhas Disponíveis</h2>
+            <div class="grid-videos" id="lista-videos"></div>
         </div>
 
         <div id="area-ranking">
-            <button class="btn-voltar" onclick="voltarParaVideos()">← Voltar para Vídeos</button>
+            <button class="btn-voltar" onclick="voltarParaVideos()"><i class="fas fa-arrow-left"></i> Voltar</button>
             <h2 id="titulo-ranking-atual">Ranking</h2>
             
             <div class="search-bar-container">
-                <input type="text" id="searchBox" placeholder="Digite seu @nome ou apelido para filtrar..." onkeyup="filtrarLista()">
+                <input type="text" id="searchBox" placeholder="Pesquisar Jogador..." onkeyup="filtrarLista()">
             </div>
 
-            <div class="tabela-container" id="lista-jogadores">
+            <div class="tabela-container" id="lista-jogadores"></div>
+        </div>
+    </div>
+
+    <div id="modal-perfil" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="fecharPerfil()">&times;</span>
+            
+            <div class="perfil-header">
+                <div class="avatar-grande" id="perfil-avatar">JS</div>
+                <h2 id="perfil-nome">Nome do Jogador</h2>
+                <p id="perfil-rank-geral">Guerreiro Verificado</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <i class="fas fa-trophy ouro"></i>
+                    <div class="stat-number" id="stat-vitorias">0</div>
+                    <div class="stat-label">Vitórias (Top 1)</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-skull-crossbones vermelho"></i>
+                    <div class="stat-number" id="stat-kills">0</div>
+                    <div class="stat-label">Total de Kills</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-gamepad azul"></i>
+                    <div class="stat-number" id="stat-partidas">0</div>
+                    <div class="stat-label">Partidas</div>
+                </div>
+            </div>
+
+            <h3><i class="fas fa-history"></i> Histórico de Batalhas</h3>
+            <div class="historico-lista" id="perfil-historico">
                 </div>
         </div>
-
     </div>
 
     <script src="config.js"></script>
