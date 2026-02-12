@@ -101,4 +101,32 @@ input#searchBox:focus { outline: none; border-color: #00ffcc; }
 }
 .btn-voltar:hover { border-color: #fff; color: #fff; }
 
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* style.css */
+
+.foto-perfil {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%; /* Faz ficar redonda */
+    object-fit: cover;
+    margin-right: 15px;
+    border: 2px solid #333; /* Borda escura para destacar */
+    background-color: #222; /* Fundo enquanto carrega */
+    vertical-align: middle;
+}
+
+.info-box {
+    display: flex;
+    align-items: center; /* Centraliza nome e foto */
+    flex-grow: 1;
+    text-align: left;
+    overflow: hidden; /* Evita que nomes gigantes quebrem o layout */
+}
+
+.nome-jogador {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Coloca "..." se o nome for muito grande */
+}
