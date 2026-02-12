@@ -56,9 +56,12 @@ function renderizarLista(lista) {
         return;
     }
 
-    // Limita a mostrar apenas os primeiros 100 se não estiver pesquisando (para não travar o site se tiver 5000)
-    // Se quiser mostrar todos, remova o .slice(0, 100)
-    const listaParaExibir = document.getElementById("searchBox").value === "" ? lista.slice(0, 200) : lista;
+    // --- MUDANÇA AQUI: Removido o .slice(0, 200) ---
+    // Agora a lista exibida é sempre a lista total que foi passada para a função
+    const listaParaExibir = lista; 
+
+    // Otimização: Cria um fragmento para adicionar tudo de uma vez no final (muito mais rápido)
+    const fragmento = document.createDocumentFragment();
 
     listaParaExibir.forEach(jogador => {
         const div = document.createElement("div");
@@ -77,17 +80,20 @@ function renderizarLista(lista) {
             </div>
             <div class="kill-box">⚔ ${jogador.kills}</div>
         `;
-        container.appendChild(div);
+        fragmento.appendChild(div);
     });
 
-    if (listaParaExibir.length < lista.length) {
-        const aviso = document.createElement("div");
-        aviso.style.padding = "15px";
-        aviso.style.textAlign = "center";
-        aviso.style.color = "#888";
-        aviso.innerText = `... e mais ${lista.length - listaParaExibir.length} jogadores. Use a busca para encontrar alguém específico.`;
-        container.appendChild(aviso);
-    }
+    // Adiciona tudo ao DOM de uma só vez
+    container.appendChild(fragmento);
+
+    // Atualiza o contador de total (opcional, visual)
+    const contador = document.createElement("div");
+    contador.style.padding = "10px";
+    contador.style.textAlign = "center";
+    contador.style.color = "#666";
+    contador.style.fontSize = "0.8em";
+    contador.innerText = `Total listado: ${listaParaExibir.length} jogadores`;
+    container.appendChild(contador);
 }
 
 // 4. Função de Pesquisa
@@ -107,4 +113,5 @@ function voltarParaVideos() {
     document.getElementById("area-ranking").style.display = "none";
     document.getElementById("searchBox").value = ""; // Limpa a busca
     dadosAtuais = [];
+
 }
