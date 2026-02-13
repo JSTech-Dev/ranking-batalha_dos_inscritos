@@ -1,4 +1,10 @@
-// ==================== APP.JS MOBILE (CORREÇÃO DE FOTOS TIKTOK) ====================
+// ==================== APP.JS MOBILE (INSTAGRAM + TIKTOK) ====================
+
+// --- VARIÁVEIS GLOBAIS ---
+let listaCompletaGlobal = []; 
+let itensRenderizados = 0;    
+const LOTE_CARREGAMENTO = 50; 
+let carregandoBloqueio = false; 
 
 // --- UTILIDADES DE MÍDIA ---
 function extrairIdYoutube(url) {
@@ -18,6 +24,7 @@ async function getMediaData(video) {
 
     if (!video.videoUrl) return dados;
 
+    // 1. YouTube
     const ytId = extrairIdYoutube(video.videoUrl);
     if (ytId) {
         dados.thumb = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
@@ -26,12 +33,12 @@ async function getMediaData(video) {
         return dados;
     }
 
+    // 2. TikTok
     if (video.videoUrl.includes("tiktok.com")) {
         dados.plataforma = "tiktok";
         dados.icon = "fab fa-tiktok";
         if (!video.thumb) {
             try {
-                // Tenta buscar capa do vídeo
                 const controller = new AbortController();
                 setTimeout(() => controller.abort(), 2000); 
                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.tikwm.com/api/?url='+video.videoUrl)}`;
@@ -42,32 +49,41 @@ async function getMediaData(video) {
                 }
             } catch (e) {}
         }
+        return dados;
     }
+
+    // 3. Instagram (NOVO)
+    if (video.videoUrl.includes("instagram.com")) {
+        dados.plataforma = "instagram";
+        dados.icon = "fab fa-instagram";
+        // Nota: O Instagram bloqueia pegar capa automática. 
+        // Recomenda-se colocar o link da thumb manual no config.js
+        return dados;
+    }
+
     return dados;
 }
 
-// --- NOVA FUNÇÃO DE AVATAR (CORRIGIDA) ---
 function gerarAvatar(nome, url) {
     const nomeLimpo = nome ? nome.replace('@', '').trim() : "User";
-    
-    // 1. URL do Avatar (Tenta buscar no unavatar)
-    // O segredo: '&fallback=false' obriga a dar erro 404 se não achar a foto,
-    // ativando o nosso onerror imediatamente.
     let src = url;
     if (!src || src === "") {
         src = `https://unavatar.io/tiktok/${nomeLimpo}?ttl=24h&fallback=false`;
     }
-    
-    // 2. URL de Backup (Iniciais Bonitas)
-    // Usamos cores escuras e texto claro para ficar premium
     const fallback = `https://ui-avatars.com/api/?name=${nome}&background=1a1a1a&color=00ffcc&size=128&bold=true&font-size=0.5`;
-    
     return `<img src="${src}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.src='${fallback}'">`;
 }
 
 // --- INICIALIZAÇÃO ---
 document.addEventListener("DOMContentLoaded", () => {
     carregarVideos();
+    window.addEventListener('scroll', () => {
+        if (document.getElementById("view-ranking").classList.contains("hidden")) return;
+        if (carregandoBloqueio) return;
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 300) {
+            carregarMaisItens();
+        }
+    });
 });
 
 function carregarVideos() {
@@ -81,6 +97,7 @@ function carregarVideos() {
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
             
+            // Placeholder inicial
             card.innerHTML = `
                 <div class="thumb-container">
                     <img src="https://placehold.co/600x400/1a1b26/FFF?text=Carregando..." class="thumb-img" alt="Capa">
@@ -102,24 +119,36 @@ function carregarVideos() {
     }
 }
 
-let dadosAtuais = [];
-
 function abrirRanking(video) {
     document.getElementById("view-videos").classList.add("hidden");
     document.getElementById("view-ranking").classList.remove("hidden");
     document.getElementById("page-title").innerText = "Ranking";
     
+    // Header Action (Botão Ver Vídeo Inteligente)
     const headerAction = document.getElementById("header-action");
     headerAction.innerHTML = "";
+    
     if(video.videoUrl) {
-        const btnStyle = video.videoUrl.includes("tiktok") 
-            ? "background:#000; border:1px solid #333; color:#00ffcc;" 
-            : "background:#ff0000; color:#fff;";
-        const iconClass = video.videoUrl.includes("tiktok") ? "fab fa-tiktok" : "fab fa-youtube";
+        let btnStyle = "background:#333; color:#fff;";
+        let iconClass = "fas fa-play";
+        let btnText = "Ver Vídeo";
+
+        if (video.videoUrl.includes("tiktok")) {
+            btnStyle = "background:#000; border:1px solid #333; color:#00ffcc;";
+            iconClass = "fab fa-tiktok";
+        } else if (video.videoUrl.includes("instagram")) {
+            // Gradiente do Instagram
+            btnStyle = "background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); color:white; border:none;";
+            iconClass = "fab fa-instagram";
+            btnText = "Ver no Insta";
+        } else if (video.videoUrl.includes("youtube") || video.videoUrl.includes("youtu.be")) {
+            btnStyle = "background:#ff0000; color:#fff;";
+            iconClass = "fab fa-youtube";
+        }
 
         headerAction.innerHTML = `
-            <button onclick="window.open('${video.videoUrl}', '_blank')" class="btn-watch-header" style="${btnStyle} border-radius:20px; padding:6px 15px; font-weight:bold; font-size:12px; cursor:pointer;">
-                <i class="${iconClass}"></i> Ver Vídeo
+            <button onclick="window.open('${video.videoUrl}', '_blank')" class="btn-watch-header" style="${btnStyle} border-radius:20px; padding:6px 15px; font-weight:bold; font-size:12px; cursor:pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                <i class="${iconClass}"></i> ${btnText}
             </button>`;
     }
 
@@ -132,14 +161,13 @@ function abrirRanking(video) {
             return res.json();
         })
         .then(json => {
-            dadosAtuais = json.placar;
-            renderizarLista(dadosAtuais);
-            
-            document.getElementById("total-players-count").innerText = dadosAtuais.length;
-            if(dadosAtuais.length > 0) {
-                const topKiller = dadosAtuais.reduce((prev, curr) => (prev.kills > curr.kills) ? prev : curr);
+            listaCompletaGlobal = json.placar;
+            document.getElementById("total-players-count").innerText = listaCompletaGlobal.length;
+            if(listaCompletaGlobal.length > 0) {
+                const topKiller = listaCompletaGlobal.reduce((prev, curr) => (prev.kills > curr.kills) ? prev : curr);
                 document.getElementById("top-kill-count").innerText = `${topKiller.kills} (${topKiller.nome})`;
             }
+            iniciarRenderizacao();
         })
         .catch(err => {
             console.error(err);
@@ -154,19 +182,26 @@ function abrirRanking(video) {
         });
 }
 
-function renderizarLista(lista) {
+// --- RENDERIZAÇÃO SCROLL INFINITO ---
+function iniciarRenderizacao() {
     const container = document.getElementById("lista-jogadores");
-    container.innerHTML = "";
+    container.innerHTML = ""; 
+    itensRenderizados = 0;    
+    carregarMaisItens();      
+}
+
+function carregarMaisItens() {
+    if (itensRenderizados >= listaCompletaGlobal.length) return; 
     
-    if(!lista || lista.length === 0) {
-        container.innerHTML = "<p style='text-align:center; padding:20px; color:#666'>Nenhum jogador na lista.</p>";
-        return;
-    }
-
+    carregandoBloqueio = true; 
+    const container = document.getElementById("lista-jogadores");
+    
+    const fim = Math.min(itensRenderizados + LOTE_CARREGAMENTO, listaCompletaGlobal.length);
+    const lote = listaCompletaGlobal.slice(itensRenderizados, fim);
+    
     const frag = document.createDocumentFragment();
-    const listaVisual = lista.slice(0, 200);
 
-    listaVisual.forEach(p => {
+    lote.forEach(p => {
         const row = document.createElement("div");
         row.className = `player-row ${p.posicao === 1 ? 'top-1' : ''}`;
         row.onclick = () => abrirPerfil(p.nome);
@@ -186,42 +221,31 @@ function renderizarLista(lista) {
         `;
         frag.appendChild(row);
     });
+
     container.appendChild(frag);
+    itensRenderizados = fim;
+    carregandoBloqueio = false; 
     
-    if(lista.length > 200) {
-        const more = document.createElement("div");
-        more.innerHTML = `<small style='display:block; text-align:center; padding:20px; color:#666'>Exibindo top 200 de ${lista.length}.<br>Use a busca para encontrar o restante.</small>`;
-        container.appendChild(more);
+    const loadingOld = document.getElementById("loading-scroll");
+    if(loadingOld) loadingOld.remove();
+
+    if (itensRenderizados < listaCompletaGlobal.length) {
+        const loadingDiv = document.createElement("div");
+        loadingDiv.id = "loading-scroll";
+        loadingDiv.innerHTML = `<div style="text-align:center; padding:10px; color:#666; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> Carregando mais...</div>`;
+        container.appendChild(loadingDiv);
     }
 }
 
-// --- PERFIL AVANÇADO (Busca foto HD) ---
+// --- PERFIL ---
 async function abrirPerfil(nome) {
     const modal = document.getElementById("modal-perfil");
     modal.style.display = "flex";
     document.getElementById("perfil-nome").innerText = nome;
     
-    // 1. Coloca o avatar padrão (Iniciais ou Baixa Resolução)
     const avatarHtml = gerarAvatar(nome, ""); 
-    const divAvatar = document.getElementById("perfil-avatar");
-    divAvatar.innerHTML = avatarHtml.replace('<img', '<img id="img-perfil-hd" style="width:100%; height:100%; object-fit:cover; border-radius:50%; border:3px solid #00ffcc;"');
+    document.getElementById("perfil-avatar").innerHTML = avatarHtml.replace('<img', '<img style="width:100%; height:100%; object-fit:cover; border-radius:50%; border:3px solid #00ffcc;"');
 
-    // 2. Tenta buscar foto HD do TikTok em background
-    const nomeLimpo = nome.replace('@', '').trim();
-    try {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.tikwm.com/api/user/info?unique_id='+nomeLimpo)}`;
-        fetch(proxyUrl)
-            .then(r => r.json())
-            .then(json => {
-                if(json.data && json.data.user && json.data.user.avatar) {
-                    // Se achar, troca a imagem para a HD
-                    const imgHD = document.getElementById("img-perfil-hd");
-                    if(imgHD) imgHD.src = json.data.user.avatar;
-                }
-            });
-    } catch(e) {}
-
-    // Lógica de Histórico e Stats
     const histContainer = document.getElementById("perfil-historico");
     histContainer.innerHTML = `<div style="text-align:center; padding:30px; color:#666"><i class="fas fa-circle-notch fa-spin"></i></div>`;
 
@@ -239,7 +263,6 @@ async function abrirPerfil(nome) {
             if(p.posicao === 1) wins++;
             const colorClass = p.posicao === 1 ? "color:#ffd700;" : "color:#fff;";
             const icon = p.posicao === 1 ? "fa-trophy" : "fa-crosshairs";
-            
             html += `
                 <div class="hist-item">
                     <span style="color:#bbb">${LISTA_DE_VIDEOS[idx].titulo}</span>
@@ -254,8 +277,7 @@ async function abrirPerfil(nome) {
     document.getElementById("stat-vitorias").innerText = wins;
     document.getElementById("stat-kills").innerText = kills;
     document.getElementById("stat-partidas").innerText = matches;
-    document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : (matches > 5 ? "Veterano" : "Guerreiro");
-    
+    document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : (kills > 50 ? "Exterminador" : "Guerreiro");
     histContainer.innerHTML = html || "<p style='text-align:center; padding:20px; color:#666'>Nenhum histórico encontrado.</p>";
 }
 
@@ -267,7 +289,9 @@ function voltarHome() {
     document.getElementById("page-title").innerText = "JS TECH";
     document.getElementById("header-action").innerHTML = "";
     document.getElementById("globalSearch").value = "";
-    filtrarListaGlobal();
+    
+    listaCompletaGlobal = [];
+    itensRenderizados = 0;
 }
 
 document.getElementById("modal-perfil").onclick = (e) => {
@@ -276,10 +300,29 @@ document.getElementById("modal-perfil").onclick = (e) => {
 
 function filtrarListaGlobal() {
     const termo = document.getElementById("globalSearch").value.toLowerCase();
-    
-    if(!document.getElementById("view-ranking").classList.contains("hidden")) {
-        const filtrados = dadosAtuais.filter(p => p.nome.toLowerCase().includes(termo));
-        renderizarLista(filtrados);
+    const rankingVisible = !document.getElementById("view-ranking").classList.contains("hidden");
+
+    if(rankingVisible) {
+        const filtrados = listaCompletaGlobal.filter(p => p.nome.toLowerCase().includes(termo));
+        const container = document.getElementById("lista-jogadores");
+        container.innerHTML = "";
+        const frag = document.createDocumentFragment();
+        
+        filtrados.slice(0, 100).forEach(p => {
+             const row = document.createElement("div");
+             row.className = `player-row ${p.posicao === 1 ? 'top-1' : ''}`;
+             row.onclick = () => abrirPerfil(p.nome);
+             row.innerHTML = `
+                <div class="rank-num">#${p.posicao}</div>
+                <div class="p-avatar">${gerarAvatar(p.nome, p.foto_url)}</div>
+                <div class="p-info">
+                    <div class="p-name">${p.nome}</div>
+                    <div class="p-detail">Resultado da busca</div>
+                </div>
+                <div class="p-kills">${p.kills}</div>`;
+             frag.appendChild(row);
+        });
+        container.appendChild(frag);
     } else {
         document.querySelectorAll(".card-video").forEach(card => {
             const txt = card.innerText.toLowerCase();
