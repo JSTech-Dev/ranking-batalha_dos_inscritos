@@ -1,11 +1,11 @@
 // config.js
 const LISTA_DE_VIDEOS = [
     {
-        id: "v003",
-        titulo: "Batalha do TikTok (25k Jogadores)",
-        data: "14/02/2026",
-        arquivo: "dados/partida_tiktok.json",
-        videoUrl: "https://www.tiktok.com/@batalha_dos_inscritos/video/7605980391157157121",
+        id: "v001",
+        titulo: "Dia 13 de Fevereiro de 2026 - Colocando os meus seguidores pra lutar até restar apenas 1",
+        data: "13/02/2026",
+        arquivo: "dados/13-02-2026-09.36.json",
+        videoUrl: "https://www.tiktok.com/@batalha_dos_inscritos/video/7606335698441932049",
         
         // --- AQUI É O PULO DO GATO ---
         // Se você preencher isso aqui, o site carrega INSTANTANEAMENTE
@@ -13,5 +13,6 @@ const LISTA_DE_VIDEOS = [
         thumb: "" 
     }
 ];
+
 
 
