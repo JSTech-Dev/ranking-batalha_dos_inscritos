@@ -1,5 +1,5 @@
 // =========================================================
-// APP.JS - VERSÃO COM DIAGNÓSTICO DE ERROS JS TECH
+// APP.JS - VERSÃO FINAL (CORREÇÃO DE CAMINHOS + PROXY NOVO)
 // =========================================================
 
 // --- FUNÇÕES DE UTILIDADE ---
@@ -11,8 +11,11 @@ function extrairIdYoutube(url) {
 }
 
 async function getMediaData(video) {
+    // Placeholder bonito se tudo falhar
+    const placeholder = "https://placehold.co/400x225/1a1b26/FFF?text=JS+Tech+Arena";
+
     const dados = {
-        thumb: video.thumb || "https://placehold.co/400x225/1a1a1a/FFF?text=Sem+Capa",
+        thumb: video.thumb || placeholder,
         link: video.videoUrl || "#",
         plataforma: "link",
         icon: "fas fa-play"
@@ -20,6 +23,7 @@ async function getMediaData(video) {
 
     if (!video.videoUrl) return dados;
 
+    // 1. YouTube (Infalível)
     const ytId = extrairIdYoutube(video.videoUrl);
     if (ytId) {
         dados.thumb = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
@@ -28,20 +32,32 @@ async function getMediaData(video) {
         return dados;
     }
 
+    // 2. TikTok (Novo Método Anti-Bloqueio)
     if (video.videoUrl.includes("tiktok.com")) {
         dados.plataforma = "tiktok";
         dados.icon = "fab fa-tiktok";
-        // Tenta pegar capa via API pública
+        
         try {
-            const apiUrl = `https://corsproxy.io/?` + encodeURIComponent(`https://www.tikwm.com/api/?url=${video.videoUrl}`);
-            const res = await fetch(apiUrl);
-            const json = await res.json();
-            if (json.data && json.data.cover) dados.thumb = json.data.cover;
-        } catch (e) { /* Falha silenciosa na capa */ }
+            // Tentativa 1: API TikWM via AllOrigins (Mais estável que corsproxy)
+            const targetUrl = `https://www.tikwm.com/api/?url=${video.videoUrl}`;
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            
+            const resposta = await fetch(proxyUrl);
+            if(resposta.ok) {
+                const json = await resposta.json();
+                if (json.data && json.data.cover) {
+                    dados.thumb = json.data.cover;
+                }
+            }
+        } catch (erro) {
+            console.warn("Proxy TikTok falhou, usando capa padrão.");
+            // Mantém o placeholder, não quebra o site
+        }
     }
     return dados;
 }
 
+// --- FUNÇÃO DE AVATAR ---
 function gerarHtmlAvatar(nome, urlFotoOriginal, isLarge = false) {
     const nomeLimpo = nome ? nome.replace('@', '').trim() : "User";
     let srcImagem = urlFotoOriginal;
@@ -71,16 +87,17 @@ function carregarGradeVideos() {
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
 
-            // Placeholder inicial
+            // Placeholder inicial enquanto carrega
             card.innerHTML = `
                 <div class="thumb-container">
-                    <img src="https://placehold.co/400x225/1a1a1a/FFF?text=Carregando..." class="thumb-img">
+                    <img src="https://placehold.co/400x225/1a1b26/FFF?text=Carregando..." class="thumb-img">
                     <div class="play-overlay"><div class="play-btn"><i class="fas fa-play"></i></div></div>
                 </div>
                 <div class="card-info">
                     <span class="card-title">${video.titulo}</span>
                     <div class="card-meta">
                         <span><i class="far fa-calendar"></i> ${video.data}</span>
+                        <span><i class="fas fa-trophy"></i> Oficial</span>
                     </div>
                 </div>
             `;
@@ -121,12 +138,11 @@ function abrirRanking(video) {
         if(searchWrapper && searchWrapper.parentNode) searchWrapper.parentNode.insertBefore(btn, searchWrapper);
     }
 
-    // --- CARREGAMENTO DO JSON COM DIAGNÓSTICO ---
+    // --- CARREGAMENTO DO JSON ---
     fetch(video.arquivo)
         .then(res => {
             if (!res.ok) {
-                // Erro HTTP (ex: 404)
-                throw new Error(`Arquivo não encontrado (${res.status}). Verifique se "${video.arquivo}" existe.`);
+                throw new Error(`Arquivo não encontrado (${res.status}). Verifique se "${video.arquivo}" está na pasta correta.`);
             }
             return res.json();
         })
@@ -138,19 +154,21 @@ function abrirRanking(video) {
             // Atualiza Topo
             document.getElementById("total-players-count").innerText = dadosPartidaAtual.length;
             if(dadosPartidaAtual.length > 0) {
-                const top1 = dadosPartidaAtual[0]; // Assume que o 1º é o top
+                const top1 = dadosPartidaAtual[0]; 
                 document.getElementById("top-kill-count").innerText = `${top1.kills} (${top1.nome})`;
             }
         })
         .catch(err => {
             console.error(err);
-            // MOSTRA O ERRO NA TELA PRO USUÁRIO VER
+            // MENSAGEM DE ERRO AMIGÁVEL NA TELA
             containerLista.innerHTML = `
-                <div style="padding:30px; text-align:center; color:#ff5555; background:rgba(255,0,0,0.1); border-radius:10px;">
-                    <i class="fas fa-bug fa-2x"></i><br>
-                    <strong>Erro ao carregar dados:</strong><br>
-                    ${err.message}<br><br>
-                    <small>Dica: Verifique o nome do arquivo na pasta 'dados'.</small>
+                <div style="padding:30px; text-align:center; color:#ff7777; background:rgba(255,0,0,0.1); border-radius:15px; border:1px solid rgba(255,0,0,0.3);">
+                    <i class="fas fa-folder-open fa-3x" style="margin-bottom:15px"></i><br>
+                    <h3 style="color:#fff; margin-bottom:10px">Arquivo Não Encontrado</h3>
+                    <p>O sistema procurou por: <strong>"${video.arquivo}"</strong></p>
+                    <p style="font-size:12px; color:#aaa; margin-top:10px">
+                        Dica: Verifique se o nome do arquivo no config.js é igual ao nome do arquivo na pasta.
+                    </p>
                 </div>`;
         });
 }
@@ -163,9 +181,8 @@ function renderizarTabela(lista) {
         container.innerHTML = "<p style='padding:20px; text-align:center'>Lista vazia.</p>"; return;
     }
 
-    // Otimização para 25k jogadores (Fragment + Slice se necessário)
-    // Mostra os primeiros 500 para não travar, o resto carrega se pesquisar
-    const maxShow = 500; 
+    // Otimização: Mostra os primeiros 200, o resto carrega ao pesquisar
+    const maxShow = 200; 
     const listaVisual = lista.slice(0, maxShow); 
     
     const frag = document.createDocumentFragment();
@@ -199,7 +216,7 @@ function renderizarTabela(lista) {
         aviso.style.padding = "15px";
         aviso.style.textAlign = "center";
         aviso.style.color = "#666";
-        aviso.innerHTML = `Exibindo top ${maxShow}. Use a pesquisa para ver mais.`;
+        aviso.innerHTML = `Exibindo top ${maxShow}. Use a pesquisa acima para encontrar jogadores específicos.`;
         container.appendChild(aviso);
     }
 }
@@ -244,7 +261,7 @@ async function abrirPerfil(nome) {
     document.getElementById("stat-kills").innerText = kills;
     document.getElementById("stat-partidas").innerText = matches;
     document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : (matches > 5 ? "Veterano" : "Recruta");
-    historyContainer.innerHTML = htmlHistory || "<p style='text-align:center; padding:20px'>Sem histórico.</p>";
+    historyContainer.innerHTML = htmlHistory || "<p style='text-align:center; padding:20px; color:#888'>Sem histórico.</p>";
 }
 
 function fecharPerfil() { document.getElementById("modal-perfil").style.display = "none"; }
