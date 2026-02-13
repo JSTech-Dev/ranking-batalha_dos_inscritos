@@ -10,12 +10,14 @@ function extrairIdYoutube(url) {
     return (match && match[2].length === 11) ? match[2] : null;
 }
 
+// --- FUNÇÃO DE MÍDIA BLINDADA (JS TECH) ---
 async function getMediaData(video) {
-    // Placeholder bonito se tudo falhar
-    const placeholder = "https://placehold.co/400x225/1a1b26/FFF?text=JS+Tech+Arena";
+    // 1. Definição do Placeholder (Imagem Padrão Premium)
+    const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=JS+Tech+Arena";
 
     const dados = {
-        thumb: video.thumb || placeholder,
+        // Se você já colocou uma thumb no config.js, usa ela! (Prioridade Total)
+        thumb: (video.thumb && video.thumb.length > 10) ? video.thumb : placeholder,
         link: video.videoUrl || "#",
         plataforma: "link",
         icon: "fas fa-play"
@@ -23,7 +25,7 @@ async function getMediaData(video) {
 
     if (!video.videoUrl) return dados;
 
-    // 1. YouTube (Infalível)
+    // 2. YouTube (Infalível - Carrega na hora)
     const ytId = extrairIdYoutube(video.videoUrl);
     if (ytId) {
         dados.thumb = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
@@ -32,27 +34,34 @@ async function getMediaData(video) {
         return dados;
     }
 
-    // 2. TikTok (FIX: Usando AllOrigins RAW para evitar erro 403)
+    // 3. TikTok (Tentativa Segura)
     if (video.videoUrl.includes("tiktok.com")) {
         dados.plataforma = "tiktok";
         dados.icon = "fab fa-tiktok";
-        
-        try {
-            // URL da API do TikWM
-            const targetUrl = `https://www.tikwm.com/api/?url=${video.videoUrl}`;
-            // Proxy AllOrigins (RAW) - Muito mais estável que corsproxy
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-            
-            const resposta = await fetch(proxyUrl);
-            if(resposta.ok) {
-                const json = await resposta.json();
-                if (json.data && json.data.cover) {
-                    dados.thumb = json.data.cover;
+
+        // Se o usuário NÃO definiu capa manual, tentamos buscar automático
+        if (!video.thumb) {
+            try {
+                // Define um tempo limite de 3 segundos. Se demorar, desiste.
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                const targetUrl = `https://www.tikwm.com/api/?url=${video.videoUrl}`;
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+                
+                const resposta = await fetch(proxyUrl, { signal: controller.signal });
+                clearTimeout(timeoutId); // Cancela o timer se deu certo
+
+                if (resposta.ok) {
+                    const json = await resposta.json();
+                    if (json.data && json.data.cover) {
+                        dados.thumb = json.data.cover;
+                    }
                 }
+            } catch (erro) {
+                // Falha silenciosa: Não mostra erro vermelho, apenas mantém o placeholder
+                console.warn("Capa TikTok demorou/falhou. Usando padrão.");
             }
-        } catch (erro) {
-            console.warn("Proxy TikTok falhou (usando capa padrão):", erro);
-            // Mantém o placeholder, não quebra o site
         }
     }
     return dados;
@@ -288,3 +297,4 @@ function filtrarListaGlobal() {
     }
 }
 document.getElementById("modal-perfil").onclick = (e) => { if(e.target.id === "modal-perfil") fecharPerfil(); }
+
