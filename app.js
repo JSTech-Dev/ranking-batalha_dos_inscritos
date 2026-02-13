@@ -1,6 +1,6 @@
-// ==================== APP.JS MOBILE (VERSÃO FINAL: FOTOS PELO NOME) ====================
+// ==================== APP.JS MOBILE (CORREÇÃO DE FOTOS TIKTOK) ====================
 
-// --- UTILIDADES ---
+// --- UTILIDADES DE MÍDIA ---
 function extrairIdYoutube(url) {
     if (!url) return null;
     const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
@@ -8,9 +8,7 @@ function extrairIdYoutube(url) {
 }
 
 async function getMediaData(video) {
-    // Capa padrão se falhar
     const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=JS+Tech";
-    
     const dados = {
         thumb: (video.thumb && video.thumb.length > 10) ? video.thumb : placeholder,
         link: video.videoUrl || "#",
@@ -31,43 +29,40 @@ async function getMediaData(video) {
     if (video.videoUrl.includes("tiktok.com")) {
         dados.plataforma = "tiktok";
         dados.icon = "fab fa-tiktok";
-        
-        // Se não tiver capa manual, tenta buscar
         if (!video.thumb) {
             try {
+                // Tenta buscar capa do vídeo
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000); 
-                
-                // Usa AllOrigins para tentar pegar a capa
+                setTimeout(() => controller.abort(), 2000); 
                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.tikwm.com/api/?url='+video.videoUrl)}`;
-                
                 const res = await fetch(proxyUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-                
                 if(res.ok) {
                     const json = await res.json();
                     if (json.data?.cover) dados.thumb = json.data.cover;
                 }
-            } catch (e) { }
+            } catch (e) {}
         }
     }
     return dados;
 }
 
-// --- AQUI ESTÁ A MÁGICA PARA CARREGAR A FOTO SÓ COM O NOME ---
-function gerarAvatar(nome, urlDoJson) {
-    // 1. Limpa o nome (tira o @ e espaços)
+// --- NOVA FUNÇÃO DE AVATAR (CORRIGIDA) ---
+function gerarAvatar(nome, url) {
     const nomeLimpo = nome ? nome.replace('@', '').trim() : "User";
     
-    // 2. MONTA O LINK DO TIKTOK
-    // Como o JSON veio vazio, a gente ignora o 'urlDoJson' e usa direto o unavatar
-    const src = `https://unavatar.io/tiktok/${nomeLimpo}?ttl=1h`;
+    // 1. URL do Avatar (Tenta buscar no unavatar)
+    // O segredo: '&fallback=false' obriga a dar erro 404 se não achar a foto,
+    // ativando o nosso onerror imediatamente.
+    let src = url;
+    if (!src || src === "") {
+        src = `https://unavatar.io/tiktok/${nomeLimpo}?ttl=24h&fallback=false`;
+    }
     
-    // 3. Link de emergência (Iniciais coloridas)
-    const fallback = `https://ui-avatars.com/api/?name=${nome}&background=random&color=fff&size=128`;
+    // 2. URL de Backup (Iniciais Bonitas)
+    // Usamos cores escuras e texto claro para ficar premium
+    const fallback = `https://ui-avatars.com/api/?name=${nome}&background=1a1a1a&color=00ffcc&size=128&bold=true&font-size=0.5`;
     
-    // 4. Retorna a imagem com proteção 'no-referrer' (ESSENCIAL pro TikTok não bloquear)
-    return `<img src="${src}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='${fallback}'">`;
+    return `<img src="${src}" referrerpolicy="no-referrer" loading="lazy" onerror="this.onerror=null; this.src='${fallback}'">`;
 }
 
 // --- INICIALIZAÇÃO ---
@@ -86,7 +81,6 @@ function carregarVideos() {
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
             
-            // Placeholder inicial
             card.innerHTML = `
                 <div class="thumb-container">
                     <img src="https://placehold.co/600x400/1a1b26/FFF?text=Carregando..." class="thumb-img" alt="Capa">
@@ -102,7 +96,6 @@ function carregarVideos() {
             const media = await getMediaData(video);
             const img = card.querySelector(".thumb-img");
             const badge = card.querySelector(".play-badge i");
-            
             if(img) img.src = media.thumb;
             if(badge) badge.className = media.icon;
         });
@@ -118,7 +111,6 @@ function abrirRanking(video) {
     
     const headerAction = document.getElementById("header-action");
     headerAction.innerHTML = "";
-    
     if(video.videoUrl) {
         const btnStyle = video.videoUrl.includes("tiktok") 
             ? "background:#000; border:1px solid #333; color:#00ffcc;" 
@@ -172,8 +164,6 @@ function renderizarLista(lista) {
     }
 
     const frag = document.createDocumentFragment();
-    
-    // Carrega 200 itens para não travar o celular
     const listaVisual = lista.slice(0, 200);
 
     listaVisual.forEach(p => {
@@ -187,9 +177,7 @@ function renderizarLista(lista) {
 
         row.innerHTML = `
             <div class="rank-num">#${p.posicao}</div>
-            
             <div class="p-avatar">${gerarAvatar(p.nome, p.foto_url)}</div>
-            
             <div class="p-info">
                 <div class="p-name">${p.nome}</div>
                 <div class="p-detail">${statusText}</div>
@@ -202,42 +190,53 @@ function renderizarLista(lista) {
     
     if(lista.length > 200) {
         const more = document.createElement("div");
-        more.innerHTML = `<small style='display:block; text-align:center; padding:20px; color:#666'>
-            Exibindo top 200 de ${lista.length}.<br>Use a busca para encontrar o restante.
-        </small>`;
+        more.innerHTML = `<small style='display:block; text-align:center; padding:20px; color:#666'>Exibindo top 200 de ${lista.length}.<br>Use a busca para encontrar o restante.</small>`;
         container.appendChild(more);
     }
 }
 
+// --- PERFIL AVANÇADO (Busca foto HD) ---
 async function abrirPerfil(nome) {
     const modal = document.getElementById("modal-perfil");
     modal.style.display = "flex";
-    
     document.getElementById("perfil-nome").innerText = nome;
     
-    // FOTO GRANDE NO PERFIL (Usando a mesma lógica)
+    // 1. Coloca o avatar padrão (Iniciais ou Baixa Resolução)
     const avatarHtml = gerarAvatar(nome, ""); 
-    document.getElementById("perfil-avatar").innerHTML = avatarHtml.replace('<img', '<img style="width:100%; height:100%; object-fit:cover; border-radius:50%; border:3px solid #00ffcc;"');
+    const divAvatar = document.getElementById("perfil-avatar");
+    divAvatar.innerHTML = avatarHtml.replace('<img', '<img id="img-perfil-hd" style="width:100%; height:100%; object-fit:cover; border-radius:50%; border:3px solid #00ffcc;"');
 
+    // 2. Tenta buscar foto HD do TikTok em background
+    const nomeLimpo = nome.replace('@', '').trim();
+    try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.tikwm.com/api/user/info?unique_id='+nomeLimpo)}`;
+        fetch(proxyUrl)
+            .then(r => r.json())
+            .then(json => {
+                if(json.data && json.data.user && json.data.user.avatar) {
+                    // Se achar, troca a imagem para a HD
+                    const imgHD = document.getElementById("img-perfil-hd");
+                    if(imgHD) imgHD.src = json.data.user.avatar;
+                }
+            });
+    } catch(e) {}
+
+    // Lógica de Histórico e Stats
     const histContainer = document.getElementById("perfil-historico");
     histContainer.innerHTML = `<div style="text-align:center; padding:30px; color:#666"><i class="fas fa-circle-notch fa-spin"></i></div>`;
 
     let wins=0, kills=0, matches=0;
     let html = "";
 
-    const promises = LISTA_DE_VIDEOS.map(v => 
-        fetch(v.arquivo).then(r => r.ok ? r.json() : null).catch(()=>null)
-    );
+    const promises = LISTA_DE_VIDEOS.map(v => fetch(v.arquivo).then(r => r.ok ? r.json() : null).catch(()=>null));
     const results = await Promise.all(promises);
 
     results.forEach((data, idx) => {
         if(!data || !data.placar) return;
-        
         const p = data.placar.find(x => x.nome === nome);
         if(p) {
             matches++; kills += p.kills;
             if(p.posicao === 1) wins++;
-            
             const colorClass = p.posicao === 1 ? "color:#ffd700;" : "color:#fff;";
             const icon = p.posicao === 1 ? "fa-trophy" : "fa-crosshairs";
             
@@ -255,7 +254,7 @@ async function abrirPerfil(nome) {
     document.getElementById("stat-vitorias").innerText = wins;
     document.getElementById("stat-kills").innerText = kills;
     document.getElementById("stat-partidas").innerText = matches;
-    document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : (kills > 50 ? "Exterminador" : "Guerreiro");
+    document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : (matches > 5 ? "Veterano" : "Guerreiro");
     
     histContainer.innerHTML = html || "<p style='text-align:center; padding:20px; color:#666'>Nenhum histórico encontrado.</p>";
 }
