@@ -1,4 +1,4 @@
-// ==================== APP.JS MOBILE (CORREÇÃO DE FOTOS TIKTOK) ====================
+// ==================== APP.JS MOBILE (VERSÃO FINAL: FOTOS PELO NOME) ====================
 
 // --- UTILIDADES ---
 function extrairIdYoutube(url) {
@@ -8,11 +8,10 @@ function extrairIdYoutube(url) {
 }
 
 async function getMediaData(video) {
-    // Capa padrão bonita (Dark Tech)
+    // Capa padrão se falhar
     const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=JS+Tech";
     
     const dados = {
-        // Se tiver capa manual no config.js, usa ela. Senão, placeholder.
         thumb: (video.thumb && video.thumb.length > 10) ? video.thumb : placeholder,
         link: video.videoUrl || "#",
         plataforma: "link",
@@ -33,13 +32,13 @@ async function getMediaData(video) {
         dados.plataforma = "tiktok";
         dados.icon = "fab fa-tiktok";
         
-        // Tenta buscar capa se não tiver manual
+        // Se não tiver capa manual, tenta buscar
         if (!video.thumb) {
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+                const timeoutId = setTimeout(() => controller.abort(), 2000); 
                 
-                // Usa AllOrigins para evitar bloqueio
+                // Usa AllOrigins para tentar pegar a capa
                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.tikwm.com/api/?url='+video.videoUrl)}`;
                 
                 const res = await fetch(proxyUrl, { signal: controller.signal });
@@ -49,29 +48,25 @@ async function getMediaData(video) {
                     const json = await res.json();
                     if (json.data?.cover) dados.thumb = json.data.cover;
                 }
-            } catch (e) {
-                // Silencioso: mantem o placeholder se falhar
-            }
+            } catch (e) { }
         }
     }
     return dados;
 }
 
-// --- A CORREÇÃO MÁGICA DAS FOTOS ---
-function gerarAvatar(nome, url) {
+// --- AQUI ESTÁ A MÁGICA PARA CARREGAR A FOTO SÓ COM O NOME ---
+function gerarAvatar(nome, urlDoJson) {
+    // 1. Limpa o nome (tira o @ e espaços)
     const nomeLimpo = nome ? nome.replace('@', '').trim() : "User";
     
-    let src = url;
+    // 2. MONTA O LINK DO TIKTOK
+    // Como o JSON veio vazio, a gente ignora o 'urlDoJson' e usa direto o unavatar
+    const src = `https://unavatar.io/tiktok/${nomeLimpo}?ttl=1h`;
     
-    // SE A FOTO ESTIVER VAZIA (que é o seu caso no JSON):
-    if (!src || src === "") {
-        // Força busca no TIKTOK (antes estava genérico)
-        src = `https://unavatar.io/tiktok/${nomeLimpo}?ttl=1h`;
-    }
-    
+    // 3. Link de emergência (Iniciais coloridas)
     const fallback = `https://ui-avatars.com/api/?name=${nome}&background=random&color=fff&size=128`;
     
-    // O 'referrerpolicy' é essencial para o TikTok não bloquear
+    // 4. Retorna a imagem com proteção 'no-referrer' (ESSENCIAL pro TikTok não bloquear)
     return `<img src="${src}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='${fallback}'">`;
 }
 
@@ -87,11 +82,11 @@ function carregarVideos() {
     
     if(typeof LISTA_DE_VIDEOS !== 'undefined') {
         LISTA_DE_VIDEOS.forEach(async (video) => {
-            // Renderiza Card Imediato (Placeholder)
             const card = document.createElement("div");
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
             
+            // Placeholder inicial
             card.innerHTML = `
                 <div class="thumb-container">
                     <img src="https://placehold.co/600x400/1a1b26/FFF?text=Carregando..." class="thumb-img" alt="Capa">
@@ -104,7 +99,6 @@ function carregarVideos() {
             `;
             container.appendChild(card);
 
-            // Busca capa real em background
             const media = await getMediaData(video);
             const img = card.querySelector(".thumb-img");
             const badge = card.querySelector(".play-badge i");
@@ -122,15 +116,13 @@ function abrirRanking(video) {
     document.getElementById("view-ranking").classList.remove("hidden");
     document.getElementById("page-title").innerText = "Ranking";
     
-    // Botão Assistir no Header
     const headerAction = document.getElementById("header-action");
     headerAction.innerHTML = "";
+    
     if(video.videoUrl) {
-        // Estilo botão de ação
         const btnStyle = video.videoUrl.includes("tiktok") 
             ? "background:#000; border:1px solid #333; color:#00ffcc;" 
             : "background:#ff0000; color:#fff;";
-            
         const iconClass = video.videoUrl.includes("tiktok") ? "fab fa-tiktok" : "fab fa-youtube";
 
         headerAction.innerHTML = `
@@ -151,10 +143,8 @@ function abrirRanking(video) {
             dadosAtuais = json.placar;
             renderizarLista(dadosAtuais);
             
-            // Stats Header
             document.getElementById("total-players-count").innerText = dadosAtuais.length;
             if(dadosAtuais.length > 0) {
-                // Pega quem tem mais kills (mesmo se não for o top 1)
                 const topKiller = dadosAtuais.reduce((prev, curr) => (prev.kills > curr.kills) ? prev : curr);
                 document.getElementById("top-kill-count").innerText = `${topKiller.kills} (${topKiller.nome})`;
             }
@@ -183,7 +173,7 @@ function renderizarLista(lista) {
 
     const frag = document.createDocumentFragment();
     
-    // Otimização Mobile: Renderiza primeiros 200 itens
+    // Carrega 200 itens para não travar o celular
     const listaVisual = lista.slice(0, 200);
 
     listaVisual.forEach(p => {
@@ -191,14 +181,15 @@ function renderizarLista(lista) {
         row.className = `player-row ${p.posicao === 1 ? 'top-1' : ''}`;
         row.onclick = () => abrirPerfil(p.nome);
 
-        // Badge de Status
         let statusText = 'Sobrevivente';
         if(p.posicao === 1) statusText = '🏆 Campeão';
         else if(p.posicao <= 10) statusText = '🔥 Top 10';
 
         row.innerHTML = `
             <div class="rank-num">#${p.posicao}</div>
+            
             <div class="p-avatar">${gerarAvatar(p.nome, p.foto_url)}</div>
+            
             <div class="p-info">
                 <div class="p-name">${p.nome}</div>
                 <div class="p-detail">${statusText}</div>
@@ -224,9 +215,8 @@ async function abrirPerfil(nome) {
     
     document.getElementById("perfil-nome").innerText = nome;
     
-    // Avatar Grande no Perfil
+    // FOTO GRANDE NO PERFIL (Usando a mesma lógica)
     const avatarHtml = gerarAvatar(nome, ""); 
-    // Truque para deixar o avatar grande via CSS inline na string
     document.getElementById("perfil-avatar").innerHTML = avatarHtml.replace('<img', '<img style="width:100%; height:100%; object-fit:cover; border-radius:50%; border:3px solid #00ffcc;"');
 
     const histContainer = document.getElementById("perfil-historico");
@@ -235,7 +225,6 @@ async function abrirPerfil(nome) {
     let wins=0, kills=0, matches=0;
     let html = "";
 
-    // Busca Paralela em todos os arquivos JSON
     const promises = LISTA_DE_VIDEOS.map(v => 
         fetch(v.arquivo).then(r => r.ok ? r.json() : null).catch(()=>null)
     );
@@ -279,7 +268,6 @@ function voltarHome() {
     document.getElementById("page-title").innerText = "JS TECH";
     document.getElementById("header-action").innerHTML = "";
     document.getElementById("globalSearch").value = "";
-    // Limpa filtros
     filtrarListaGlobal();
 }
 
@@ -290,12 +278,10 @@ document.getElementById("modal-perfil").onclick = (e) => {
 function filtrarListaGlobal() {
     const termo = document.getElementById("globalSearch").value.toLowerCase();
     
-    // Se estiver no ranking, filtra jogadores
     if(!document.getElementById("view-ranking").classList.contains("hidden")) {
         const filtrados = dadosAtuais.filter(p => p.nome.toLowerCase().includes(termo));
         renderizarLista(filtrados);
     } else {
-        // Se estiver na home, filtra vídeos
         document.querySelectorAll(".card-video").forEach(card => {
             const txt = card.innerText.toLowerCase();
             card.style.display = txt.includes(termo) ? "block" : "none";
