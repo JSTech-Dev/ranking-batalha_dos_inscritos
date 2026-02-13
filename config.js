@@ -2,12 +2,14 @@
 const LISTA_DE_VIDEOS = [
     {
         id: "v003",
-        titulo: "Batalha do TikTok",
+        titulo: "Batalha do TikTok (25k Jogadores)",
         data: "14/02/2026",
+        arquivo: "dados/partida_tiktok.json",
+        videoUrl: "https://www.tiktok.com/@batalha_dos_inscritos/video/732589...",
         
-        // MUDANÇA AQUI: Adicione "dados/" antes do nome
-        arquivo: "dados/partida_tiktok.json", 
-        
-        videoUrl: "https://www.tiktok.com/@batalha_dos_inscritos/video/7325890000000000000" 
+        // --- AQUI É O PULO DO GATO ---
+        // Se você preencher isso aqui, o site carrega INSTANTANEAMENTE
+        // Se deixar vazio (""), ele tenta buscar sozinho.
+        thumb: "https://p16-sign-va.tiktokcdn.com/tos-maliva-p-0068/o48eDGI... (link da imagem)" 
     }
 ];
