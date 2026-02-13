@@ -1,22 +1,15 @@
-// =========================================================
-// APP.JS - VERSÃO CORRIGIDA (PROXY NOVO + DIAGNÓSTICO)
-// =========================================================
+// ==================== APP.JS MOBILE ====================
 
-// --- FUNÇÕES DE UTILIDADE ---
+// --- UTILIDADES ---
 function extrairIdYoutube(url) {
     if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
+    const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
     return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// --- FUNÇÃO DE MÍDIA BLINDADA (JS TECH) ---
 async function getMediaData(video) {
-    // 1. Definição do Placeholder (Imagem Padrão Premium)
-    const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=JS+Tech+Arena";
-
+    const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=JS+Tech";
     const dados = {
-        // Se você já colocou uma thumb no config.js, usa ela! (Prioridade Total)
         thumb: (video.thumb && video.thumb.length > 10) ? video.thumb : placeholder,
         link: video.videoUrl || "#",
         plataforma: "link",
@@ -25,7 +18,6 @@ async function getMediaData(video) {
 
     if (!video.videoUrl) return dados;
 
-    // 2. YouTube (Infalível - Carrega na hora)
     const ytId = extrairIdYoutube(video.videoUrl);
     if (ytId) {
         dados.thumb = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
@@ -34,217 +26,152 @@ async function getMediaData(video) {
         return dados;
     }
 
-    // 3. TikTok (Tentativa Segura)
     if (video.videoUrl.includes("tiktok.com")) {
         dados.plataforma = "tiktok";
         dados.icon = "fab fa-tiktok";
-
-        // Se o usuário NÃO definiu capa manual, tentamos buscar automático
         if (!video.thumb) {
             try {
-                // Define um tempo limite de 3 segundos. Se demorar, desiste.
+                // Tentativa rápida de capa
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-                const targetUrl = `https://www.tikwm.com/api/?url=${video.videoUrl}`;
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-                
-                const resposta = await fetch(proxyUrl, { signal: controller.signal });
-                clearTimeout(timeoutId); // Cancela o timer se deu certo
-
-                if (resposta.ok) {
-                    const json = await resposta.json();
-                    if (json.data && json.data.cover) {
-                        dados.thumb = json.data.cover;
-                    }
-                }
-            } catch (erro) {
-                // Falha silenciosa: Não mostra erro vermelho, apenas mantém o placeholder
-                console.warn("Capa TikTok demorou/falhou. Usando padrão.");
-            }
+                setTimeout(() => controller.abort(), 2000); 
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.tikwm.com/api/?url='+video.videoUrl)}`;
+                const res = await fetch(proxyUrl, { signal: controller.signal });
+                const json = await res.json();
+                if (json.data?.cover) dados.thumb = json.data.cover;
+            } catch (e) {}
         }
     }
     return dados;
 }
 
-// --- FUNÇÃO DE AVATAR (BLINDADA) ---
-function gerarHtmlAvatar(nome, urlFotoOriginal, isLarge = false) {
+function gerarAvatar(nome, url) {
     const nomeLimpo = nome ? nome.replace('@', '').trim() : "User";
-    let srcImagem = urlFotoOriginal;
-    
-    // Tenta adivinhar a foto se não tiver
-    if (!srcImagem) srcImagem = `https://unavatar.io/${nomeLimpo}?ttl=1h`;
-
-    const backupAvatar = `https://ui-avatars.com/api/?name=${nome}&background=random&color=fff&size=128`;
-    const cssClass = isLarge ? "avatar-large" : "foto-mini";
-
-    return `<img src="${srcImagem}" class="${cssClass}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='${backupAvatar}'">`;
+    const src = url || `https://unavatar.io/${nomeLimpo}?ttl=1h`;
+    const fallback = `https://ui-avatars.com/api/?name=${nome}&background=random&color=fff&size=128`;
+    return `<img src="${src}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='${fallback}'">`;
 }
 
 // --- INICIALIZAÇÃO ---
 document.addEventListener("DOMContentLoaded", () => {
-    carregarGradeVideos();
+    carregarVideos();
 });
 
-function carregarGradeVideos() {
-    const container = document.getElementById("view-videos");
+function carregarVideos() {
+    const container = document.getElementById("lista-videos-container");
     if(!container) return;
     container.innerHTML = "";
     
     if(typeof LISTA_DE_VIDEOS !== 'undefined') {
         LISTA_DE_VIDEOS.forEach(async (video) => {
+            const media = await getMediaData(video);
+            
             const card = document.createElement("div");
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
-
-            // Placeholder inicial
+            
             card.innerHTML = `
                 <div class="thumb-container">
-                    <img src="https://placehold.co/400x225/1a1b26/FFF?text=Carregando..." class="thumb-img">
-                    <div class="play-overlay"><div class="play-btn"><i class="fas fa-play"></i></div></div>
+                    <img src="${media.thumb}" alt="Capa">
+                    <div class="play-badge"><i class="${media.icon}"></i></div>
                 </div>
                 <div class="card-info">
                     <span class="card-title">${video.titulo}</span>
-                    <div class="card-meta">
-                        <span><i class="far fa-calendar"></i> ${video.data}</span>
-                        <span><i class="fas fa-trophy"></i> Oficial</span>
-                    </div>
+                    <span class="card-date">${video.data} • Toque para ver Ranking</span>
                 </div>
             `;
             container.appendChild(card);
-
-            const media = await getMediaData(video);
-            const img = card.querySelector(".thumb-img");
-            const icon = card.querySelector(".play-btn i");
-            if(img) img.src = media.thumb;
-            if(icon) icon.className = media.icon;
         });
     }
 }
 
-let dadosPartidaAtual = [];
+let dadosAtuais = [];
 
 function abrirRanking(video) {
-    document.getElementById("view-videos").style.display = "none";
-    document.getElementById("view-ranking").style.display = "block";
-    document.getElementById("page-title").innerText = video.titulo;
+    document.getElementById("view-videos").classList.add("hidden");
+    document.getElementById("view-ranking").classList.remove("hidden");
+    document.getElementById("page-title").innerText = "Ranking";
     
-    const containerLista = document.getElementById("lista-jogadores");
-    containerLista.innerHTML = `<div style="padding:40px; text-align:center; color:#666;"><i class="fas fa-circle-notch fa-spin fa-2x"></i><br>Buscando arquivo...</div>`;
-
-    // Botão Assistir
-    const searchWrapper = document.querySelector('.search-wrapper');
-    const btnExistente = document.getElementById('btn-watch-action');
-    if(btnExistente) btnExistente.remove();
-
+    // Botão Assistir no Header
+    const headerAction = document.getElementById("header-action");
+    headerAction.innerHTML = "";
     if(video.videoUrl) {
-        const btn = document.createElement('button');
-        btn.id = 'btn-watch-action';
-        btn.className = 'nav-btn active'; 
-        btn.style.width = 'auto';
-        btn.style.marginRight = '20px';
-        btn.innerHTML = `<i class="fas fa-play"></i> Assistir`;
-        btn.onclick = () => window.open(video.videoUrl, '_blank');
-        if(searchWrapper && searchWrapper.parentNode) searchWrapper.parentNode.insertBefore(btn, searchWrapper);
+        headerAction.innerHTML = `
+            <button onclick="window.open('${video.videoUrl}', '_blank')" class="btn-watch-header" style="background:#00ffcc; border:none; border-radius:20px; padding:5px 15px; font-weight:bold; font-size:12px;">
+                Assistir <i class="fas fa-play"></i>
+            </button>`;
     }
 
-    // --- CARREGAMENTO DO JSON COM DIAGNÓSTICO ---
+    const listaContainer = document.getElementById("lista-jogadores");
+    listaContainer.innerHTML = `<div style="text-align:center; padding:40px;"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>`;
+
     fetch(video.arquivo)
         .then(res => {
-            if (!res.ok) {
-                // Se der 404, lançamos um erro explicativo
-                throw new Error(`Arquivo não encontrado (${res.status}). O arquivo "${video.arquivo}" não está no site.`);
-            }
+            if(!res.ok) throw new Error("404");
             return res.json();
         })
         .then(json => {
-            if(!json.placar) throw new Error("O arquivo JSON existe, mas não tem a lista 'placar'.");
-            dadosPartidaAtual = json.placar;
-            renderizarTabela(dadosPartidaAtual);
+            dadosAtuais = json.placar;
+            renderizarLista(dadosAtuais);
             
-            // Atualiza Topo
-            document.getElementById("total-players-count").innerText = dadosPartidaAtual.length;
-            if(dadosPartidaAtual.length > 0) {
-                const top1 = dadosPartidaAtual[0]; 
+            // Stats
+            document.getElementById("total-players-count").innerText = dadosAtuais.length;
+            if(dadosAtuais.length > 0) {
+                const top1 = dadosAtuais[0];
                 document.getElementById("top-kill-count").innerText = `${top1.kills} (${top1.nome})`;
             }
         })
         .catch(err => {
-            console.error(err);
-            // MOSTRA O ERRO NA TELA PRO USUÁRIO VER
-            containerLista.innerHTML = `
-                <div style="padding:30px; text-align:center; color:#ff7777; background:rgba(255,0,0,0.1); border-radius:15px; border:1px solid rgba(255,0,0,0.3);">
-                    <i class="fas fa-cloud-upload-alt fa-3x" style="margin-bottom:15px"></i><br>
-                    <h3 style="color:#fff; margin-bottom:10px">Arquivo Faltando no Vercel</h3>
-                    <p>O sistema tentou abrir: <strong>"${video.arquivo}"</strong></p>
-                    <p style="font-size:14px; color:#aaa; margin-top:10px">
-                        Você precisa fazer upload deste arquivo .json para o GitHub.<br>
-                        Se ele estiver apenas no seu PC, o site não consegue ler.
-                    </p>
-                </div>`;
+            listaContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#ff4444">Erro ao abrir arquivo.<br><small>${video.arquivo}</small></div>`;
         });
 }
 
-function renderizarTabela(lista) {
+function renderizarLista(lista) {
     const container = document.getElementById("lista-jogadores");
     container.innerHTML = "";
-    
-    if(!lista || lista.length === 0) {
-        container.innerHTML = "<p style='padding:20px; text-align:center'>Lista vazia.</p>"; return;
-    }
-
-    const maxShow = 200; 
-    const listaVisual = lista.slice(0, maxShow); 
-    
     const frag = document.createDocumentFragment();
+    
+    // Limite visual para celular (carrega 200 para não travar scroll)
+    const listaVisual = lista.slice(0, 200);
 
     listaVisual.forEach(p => {
         const row = document.createElement("div");
-        row.className = `linha-jogador rank-${p.posicao}`;
-        if(p.posicao <= 3) row.classList.add(`top-3`);
+        row.className = `player-row ${p.posicao === 1 ? 'top-1' : ''}`;
         row.onclick = () => abrirPerfil(p.nome);
 
-        let statusHtml = `<span>Sobrevivente</span>`;
-        if(p.posicao === 1) statusHtml = `<span>🏆 Campeão</span>`;
-        else if(p.posicao <= 10) statusHtml = `<span>🔥 Top 10</span>`;
-
         row.innerHTML = `
-            <div class="col-rank">#${p.posicao}</div>
-            <div class="col-player">
-                ${gerarHtmlAvatar(p.nome, p.foto_url)}
-                <span>${p.nome}</span>
+            <div class="rank-num">#${p.posicao}</div>
+            <div class="p-avatar">${gerarAvatar(p.nome, p.foto_url)}</div>
+            <div class="p-info">
+                <div class="p-name">${p.nome}</div>
+                <div class="p-detail">${p.posicao === 1 ? '🏆 Campeão' : 'Sobrevivente'}</div>
             </div>
-            <div class="col-kills">${p.kills}</div>
-            <div class="col-status">${statusHtml}</div>
+            <div class="p-kills">${p.kills} K</div>
         `;
         frag.appendChild(row);
     });
-    
     container.appendChild(frag);
-
-    if(lista.length > maxShow) {
-        const aviso = document.createElement("div");
-        aviso.style.padding = "15px";
-        aviso.style.textAlign = "center";
-        aviso.style.color = "#666";
-        aviso.innerHTML = `Exibindo top ${maxShow}. Use a pesquisa acima para encontrar jogadores específicos.`;
-        container.appendChild(aviso);
+    
+    if(lista.length > 200) {
+        const more = document.createElement("div");
+        more.innerHTML = "<small style='display:block; text-align:center; padding:10px; color:#666'>... use a busca para ver mais ...</small>";
+        container.appendChild(more);
     }
 }
 
-// --- PERFIL ---
 async function abrirPerfil(nome) {
     const modal = document.getElementById("modal-perfil");
     modal.style.display = "flex";
+    
     document.getElementById("perfil-nome").innerText = nome;
-    document.getElementById("perfil-avatar").innerHTML = gerarHtmlAvatar(nome, "", true);
+    document.getElementById("perfil-avatar").innerHTML = gerarAvatar(nome, ""); // Busca foto
 
-    const historyContainer = document.getElementById("perfil-historico");
-    historyContainer.innerHTML = `<div style="text-align:center; padding:20px"><i class="fas fa-spinner fa-spin"></i></div>`;
+    const histContainer = document.getElementById("perfil-historico");
+    histContainer.innerHTML = `<div style="text-align:center; padding:20px"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-    let kills=0, wins=0, matches=0;
-    let htmlHistory = "";
+    let wins=0, kills=0, matches=0;
+    let html = "";
 
+    // Analisa histórico
     const promises = LISTA_DE_VIDEOS.map(v => fetch(v.arquivo).then(r => r.ok ? r.json() : null).catch(()=>null));
     const results = await Promise.all(promises);
 
@@ -254,16 +181,11 @@ async function abrirPerfil(nome) {
         if(p) {
             matches++; kills += p.kills;
             if(p.posicao === 1) wins++;
-            const icon = p.posicao===1 ? "fa-trophy" : "fa-crosshairs";
-            const colorClass = p.posicao===1 ? "rank-gold" : "";
-            
-            htmlHistory += `
+            const color = p.posicao === 1 ? "gold" : "";
+            html += `
                 <div class="hist-item">
-                    <div>
-                        <div style="font-weight:600; font-size:12px; color:#fff">${LISTA_DE_VIDEOS[idx].titulo}</div>
-                        <div style="font-size:11px; color:#888"><i class="fas ${icon}"></i> ${p.kills} Kills</div>
-                    </div>
-                    <div class="hist-rank ${colorClass}">#${p.posicao}</div>
+                    <span style="color:#fff">${LISTA_DE_VIDEOS[idx].titulo}</span>
+                    <span class="${color}">#${p.posicao} (${p.kills} Kills)</span>
                 </div>`;
         }
     });
@@ -271,30 +193,35 @@ async function abrirPerfil(nome) {
     document.getElementById("stat-vitorias").innerText = wins;
     document.getElementById("stat-kills").innerText = kills;
     document.getElementById("stat-partidas").innerText = matches;
-    document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : (matches > 5 ? "Veterano" : "Recruta");
-    historyContainer.innerHTML = htmlHistory || "<p style='text-align:center; padding:20px'>Sem histórico.</p>";
+    document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : "Guerreiro";
+    
+    histContainer.innerHTML = html || "<p style='text-align:center; padding:10px'>Sem histórico.</p>";
 }
 
 function fecharPerfil() { document.getElementById("modal-perfil").style.display = "none"; }
 function voltarHome() {
-    document.getElementById("view-ranking").style.display = "none";
-    document.getElementById("view-videos").style.display = "grid";
-    document.getElementById("page-title").innerText = "Últimas Batalhas";
-    const btn = document.getElementById('btn-watch-action'); if(btn) btn.remove();
+    document.getElementById("view-ranking").classList.add("hidden");
+    document.getElementById("view-videos").classList.remove("hidden");
+    document.getElementById("page-title").innerText = "JS TECH";
+    document.getElementById("header-action").innerHTML = "";
 }
+
+// Fechar ao clicar fora (no fundo escuro)
+document.getElementById("modal-perfil").onclick = (e) => {
+    if(e.target.id === "modal-perfil") fecharPerfil();
+}
+
 function filtrarListaGlobal() {
     const termo = document.getElementById("globalSearch").value.toLowerCase();
-    if(document.getElementById("view-ranking").style.display === "block") {
-        if(dadosPartidaAtual) {
-            const filtrados = dadosPartidaAtual.filter(p => p.nome.toLowerCase().includes(termo));
-            renderizarTabela(filtrados);
-        }
+    // Se estiver no ranking, filtra jogadores
+    if(!document.getElementById("view-ranking").classList.contains("hidden")) {
+        const filtrados = dadosAtuais.filter(p => p.nome.toLowerCase().includes(termo));
+        renderizarLista(filtrados);
     } else {
+        // Se estiver nos vídeos, filtra vídeos
         document.querySelectorAll(".card-video").forEach(card => {
-            const title = card.querySelector(".card-title").innerText.toLowerCase();
-            card.style.display = title.includes(termo) ? "block" : "none";
+            const txt = card.innerText.toLowerCase();
+            card.style.display = txt.includes(termo) ? "block" : "none";
         });
     }
 }
-document.getElementById("modal-perfil").onclick = (e) => { if(e.target.id === "modal-perfil") fecharPerfil(); }
-
