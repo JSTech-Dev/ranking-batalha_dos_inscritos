@@ -1,4 +1,4 @@
-// ==================== APP.JS MOBILE (INSTAGRAM + TIKTOK) ====================
+// ==================== APP.JS MOBILE (FINAL: LISTA DE GUERREIROS) ====================
 
 // --- VARIÁVEIS GLOBAIS ---
 let listaCompletaGlobal = []; 
@@ -14,7 +14,9 @@ function extrairIdYoutube(url) {
 }
 
 async function getMediaData(video) {
-    const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=JS+Tech";
+    // MUDANÇA AQUI: O texto da imagem padrão agora é "Lista de Guerreiros"
+    const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=Lista+de+Guerreiros";
+    
     const dados = {
         thumb: (video.thumb && video.thumb.length > 10) ? video.thumb : placeholder,
         link: video.videoUrl || "#",
@@ -52,12 +54,10 @@ async function getMediaData(video) {
         return dados;
     }
 
-    // 3. Instagram (NOVO)
+    // 3. Instagram
     if (video.videoUrl.includes("instagram.com")) {
         dados.plataforma = "instagram";
         dados.icon = "fab fa-instagram";
-        // Nota: O Instagram bloqueia pegar capa automática. 
-        // Recomenda-se colocar o link da thumb manual no config.js
         return dados;
     }
 
@@ -97,10 +97,10 @@ function carregarVideos() {
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
             
-            // Placeholder inicial
+            // Usando placeholder com texto novo
             card.innerHTML = `
                 <div class="thumb-container">
-                    <img src="https://placehold.co/600x400/1a1b26/FFF?text=Carregando..." class="thumb-img" alt="Capa">
+                    <img src="https://placehold.co/600x400/1a1b26/FFF?text=Carregando..." class="thumb-img" alt="Lista de Guerreiros">
                     <div class="play-badge"><i class="fas fa-play"></i></div>
                 </div>
                 <div class="card-info">
@@ -124,7 +124,6 @@ function abrirRanking(video) {
     document.getElementById("view-ranking").classList.remove("hidden");
     document.getElementById("page-title").innerText = "Ranking";
     
-    // Header Action (Botão Ver Vídeo Inteligente)
     const headerAction = document.getElementById("header-action");
     headerAction.innerHTML = "";
     
@@ -137,7 +136,6 @@ function abrirRanking(video) {
             btnStyle = "background:#000; border:1px solid #333; color:#00ffcc;";
             iconClass = "fab fa-tiktok";
         } else if (video.videoUrl.includes("instagram")) {
-            // Gradiente do Instagram
             btnStyle = "background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); color:white; border:none;";
             iconClass = "fab fa-instagram";
             btnText = "Ver no Insta";
@@ -182,7 +180,6 @@ function abrirRanking(video) {
         });
 }
 
-// --- RENDERIZAÇÃO SCROLL INFINITO ---
 function iniciarRenderizacao() {
     const container = document.getElementById("lista-jogadores");
     container.innerHTML = ""; 
@@ -237,7 +234,6 @@ function carregarMaisItens() {
     }
 }
 
-// --- PERFIL ---
 async function abrirPerfil(nome) {
     const modal = document.getElementById("modal-perfil");
     modal.style.display = "flex";
