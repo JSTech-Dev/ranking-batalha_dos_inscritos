@@ -136,20 +136,20 @@ body { background-color: var(--bg-dark); color: var(--text-main); padding-bottom
 .fade-in { animation: fadeIn 0.3s; } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* ==================== ÁREA DE ANÚNCIOS (ADSTERRA) ==================== */
+/* No seu style.css */
 .ad-container {
     width: 100%;
-    max-width: 350px; /* Tamanho ideal para banner mobile (300x250 ou 320x50) */
-    margin: 20px auto; /* Centraliza e dá espaço em cima/baixo */
-    text-align: center;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.02); /* Fundo sutil enquanto carrega */
-    border-radius: 12px;
-    padding: 10px;
-    border: 1px dashed rgba(255, 255, 255, 0.1); /* Borda discreta */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 20px 0; /* Espaço em cima e embaixo */
+    min-height: 260px; /* Reserva o espaço para o layout não pular quando o anúncio carregar */
 }
 
 /* Esconde anúncio se a tela for muito pequena (opcional) */
 @media (max-height: 400px) {
     .ad-container { display: none; }
 }
+
 
