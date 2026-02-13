@@ -2,127 +2,106 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JS Tech Arena | Hub Oficial</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Batalha dos Inscritos</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="bg-gradient"></div>
-
-    <div class="main-layout">
+    <header class="app-header glass">
+        <div class="header-content">
+            <h1 id="page-title">JS TECH</h1>
+            <div id="header-action">
+                </div>
+        </div>
         
-        <aside class="sidebar glass">
-            <div class="brand">
-                <i class="fas fa-gamepad logo-icon"></i>
-                <div>
-                    <h1>JS TECH</h1>
-                    <span>Arena Hub</span>
+        <div class="search-container">
+            <i class="fas fa-search"></i>
+            <input type="text" id="globalSearch" placeholder="Buscar jogador..." onkeyup="filtrarListaGlobal()">
+        </div>
+    </header>
+
+    <main class="app-content">
+        
+        <div id="view-videos" class="fade-in">
+            <h2 class="section-title">Últimas Batalhas</h2>
+            <div id="lista-videos-container" class="videos-list">
+                </div>
+        </div>
+
+        <div id="view-ranking" class="hidden">
+            <div class="ranking-stats">
+                <div class="r-stat">
+                    <span class="label">Total</span>
+                    <strong id="total-players-count">0</strong>
+                </div>
+                <div class="r-stat">
+                    <span class="label">Top Kill</span>
+                    <strong id="top-kill-count" class="highlight">-</strong>
                 </div>
             </div>
-
-            <nav>
-                <button class="nav-btn active" onclick="mostrarSecao('videos')">
-                    <i class="fas fa-video"></i> Batalhas
-                </button>
-                <button class="nav-btn" onclick="window.open('https://tiktok.com/@batalha_dos_inscritos', '_blank')">
-                    <i class="fab fa-tiktok"></i> TikTok
-                </button>
-                <button class="nav-btn" onclick="window.open('https://youtube.com', '_blank')">
-                    <i class="fab fa-youtube"></i> YouTube
-                </button>
-            </nav>
-
-            <div class="status-box">
-                <span class="status-dot"></span> Sistema Online
-            </div>
-        </aside>
-
-        <main class="content">
             
-            <header class="top-bar glass">
-                <h2 id="page-title">Últimas Batalhas</h2>
-                <div class="search-wrapper">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="globalSearch" placeholder="Buscar jogador..." onkeyup="filtrarListaGlobal()">
+            <div id="lista-jogadores" class="players-list">
                 </div>
-            </header>
+            
+            <div class="spacer-bottom"></div>
+        </div>
 
-            <div id="container-principal" class="fade-in">
-                
-                <div id="view-videos" class="grid-videos">
-                    </div>
+    </main>
 
-                <div id="view-ranking" style="display: none;">
-                    <div class="ranking-header">
-                        <button class="btn-back" onclick="voltarHome()">
-                            <i class="fas fa-arrow-left"></i> Voltar
-                        </button>
-                        <div class="stats-resumo glass">
-                            <div class="stat-item">
-                                <span class="label">Jogadores</span>
-                                <span class="value" id="total-players-count">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="label">Maior Killstreak</span>
-                                <span class="value highlight" id="top-kill-count">0</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="table-container glass">
-                        <div class="table-header">
-                            <div class="col-rank">#</div>
-                            <div class="col-player">Jogador</div>
-                            <div class="col-kills">Kills</div>
-                            <div class="col-status">Status</div>
-                        </div>
-                        <div id="lista-jogadores" class="table-body">
-                            </div>
-                    </div>
-                </div>
-
-            </div>
-        </main>
-    </div>
+    <nav class="bottom-nav glass">
+        <button class="nav-item active" onclick="voltarHome()">
+            <i class="fas fa-home"></i>
+            <span>Início</span>
+        </button>
+        <button class="nav-item" onclick="window.open('https://tiktok.com/@batalha_dos_inscritos', '_blank')">
+            <i class="fab fa-tiktok"></i>
+            <span>TikTok</span>
+        </button>
+        <button class="nav-item" onclick="window.open('https://youtube.com', '_blank')">
+            <i class="fab fa-youtube"></i>
+            <span>YouTube</span>
+        </button>
+    </nav>
 
     <div id="modal-perfil" class="modal-overlay">
-        <div class="profile-card glass">
-            <button class="close-modal" onclick="fecharPerfil()"><i class="fas fa-times"></i></button>
+        <div class="bottom-sheet glass">
+            <div class="drag-handle"></div>
             
-            <div class="profile-cover"></div>
-            
-            <div class="profile-header">
-                <div class="profile-avatar-wrapper" id="perfil-avatar">
-                    </div>
-                <h2 id="perfil-nome">@NomeDoJogador</h2>
-                <span class="profile-badge" id="perfil-badge">Guerreiro</span>
+            <div class="sheet-header">
+                <div class="sheet-avatar" id="perfil-avatar"></div>
+                <div class="sheet-info">
+                    <h2 id="perfil-nome">@Nome</h2>
+                    <span class="badge" id="perfil-badge">Guerreiro</span>
+                </div>
+                <button class="close-sheet" onclick="fecharPerfil()"><i class="fas fa-times"></i></button>
             </div>
 
-            <div class="profile-stats">
-                <div class="p-stat">
-                    <span class="p-value" id="stat-vitorias">0</span>
-                    <span class="p-label">Vitórias</span>
+            <div class="sheet-stats">
+                <div class="s-box">
+                    <i class="fas fa-trophy gold"></i>
+                    <span id="stat-vitorias">0</span>
+                    <label>Vitórias</label>
                 </div>
-                <div class="p-stat">
-                    <span class="p-value" id="stat-kills">0</span>
-                    <span class="p-label">Abates</span>
+                <div class="s-box">
+                    <i class="fas fa-crosshairs red"></i>
+                    <span id="stat-kills">0</span>
+                    <label>Kills</label>
                 </div>
-                <div class="p-stat">
-                    <span class="p-value" id="stat-partidas">0</span>
-                    <span class="p-label">Partidas</span>
+                <div class="s-box">
+                    <i class="fas fa-gamepad blue"></i>
+                    <span id="stat-partidas">0</span>
+                    <label>Partidas</label>
                 </div>
             </div>
 
-            <div class="profile-history">
-                <h3>Histórico de Combate</h3>
-                <div class="history-list custom-scroll" id="perfil-historico">
-                    </div>
-            </div>
+            <h3 class="hist-title">Histórico de Batalhas</h3>
+            <div class="sheet-history custom-scroll" id="perfil-historico">
+                </div>
         </div>
     </div>
 
