@@ -1,5 +1,5 @@
 // =========================================================
-// APP.JS - VERSÃO PREMIUM (DESIGN + LÓGICA BLINDADA)
+// APP.JS - VERSÃO COM DIAGNÓSTICO DE ERROS JS TECH
 // =========================================================
 
 // --- FUNÇÕES DE UTILIDADE ---
@@ -12,7 +12,7 @@ function extrairIdYoutube(url) {
 
 async function getMediaData(video) {
     const dados = {
-        thumb: video.thumb || "https://via.placeholder.com/400x225/111/333?text=Carregando",
+        thumb: video.thumb || "https://placehold.co/400x225/1a1a1a/FFF?text=Sem+Capa",
         link: video.videoUrl || "#",
         plataforma: "link",
         icon: "fas fa-play"
@@ -31,36 +31,28 @@ async function getMediaData(video) {
     if (video.videoUrl.includes("tiktok.com")) {
         dados.plataforma = "tiktok";
         dados.icon = "fab fa-tiktok";
+        // Tenta pegar capa via API pública
         try {
             const apiUrl = `https://corsproxy.io/?` + encodeURIComponent(`https://www.tikwm.com/api/?url=${video.videoUrl}`);
-            const resposta = await fetch(apiUrl);
-            const json = await resposta.json();
-            if (json.data && json.data.cover) {
-                dados.thumb = json.data.cover;
-            }
-        } catch (erro) { console.error("TikTok Thumb Error:", erro); }
+            const res = await fetch(apiUrl);
+            const json = await res.json();
+            if (json.data && json.data.cover) dados.thumb = json.data.cover;
+        } catch (e) { /* Falha silenciosa na capa */ }
     }
     return dados;
 }
 
-// --- FUNÇÃO DE AVATAR (AQUELE CÓDIGO QUE VOCÊ MANDOU) ---
 function gerarHtmlAvatar(nome, urlFotoOriginal, isLarge = false) {
-    const nomeLimpo = nome.replace('@', '').trim();
+    const nomeLimpo = nome ? nome.replace('@', '').trim() : "User";
     let srcImagem = urlFotoOriginal;
     
-    if (!srcImagem || srcImagem === "") {
-        srcImagem = `https://unavatar.io/${nomeLimpo}?ttl=1h`;
-    }
+    // Tenta adivinhar a foto se não tiver
+    if (!srcImagem) srcImagem = `https://unavatar.io/${nomeLimpo}?ttl=1h`;
 
     const backupAvatar = `https://ui-avatars.com/api/?name=${nome}&background=random&color=fff&size=128`;
     const cssClass = isLarge ? "avatar-large" : "foto-mini";
 
-    return `
-        <img src="${srcImagem}" 
-             class="${cssClass}" 
-             referrerpolicy="no-referrer" 
-             onerror="this.onerror=null; this.src='${backupAvatar}'">
-    `;
+    return `<img src="${srcImagem}" class="${cssClass}" referrerpolicy="no-referrer" onerror="this.onerror=null; this.src='${backupAvatar}'">`;
 }
 
 // --- INICIALIZAÇÃO ---
@@ -68,55 +60,52 @@ document.addEventListener("DOMContentLoaded", () => {
     carregarGradeVideos();
 });
 
-// Renderiza a grade inicial
 function carregarGradeVideos() {
     const container = document.getElementById("view-videos");
+    if(!container) return;
     container.innerHTML = "";
     
     if(typeof LISTA_DE_VIDEOS !== 'undefined') {
         LISTA_DE_VIDEOS.forEach(async (video) => {
-            const mediaData = await getMediaData(video);
-            
             const card = document.createElement("div");
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
 
+            // Placeholder inicial
             card.innerHTML = `
                 <div class="thumb-container">
-                    <img src="${mediaData.thumb}" alt="Capa">
-                    <div class="play-overlay">
-                        <div class="play-btn"><i class="${mediaData.icon}"></i></div>
-                    </div>
+                    <img src="https://placehold.co/400x225/1a1a1a/FFF?text=Carregando..." class="thumb-img">
+                    <div class="play-overlay"><div class="play-btn"><i class="fas fa-play"></i></div></div>
                 </div>
                 <div class="card-info">
                     <span class="card-title">${video.titulo}</span>
                     <div class="card-meta">
                         <span><i class="far fa-calendar"></i> ${video.data}</span>
-                        <span><i class="fas fa-trophy"></i> Oficial</span>
                     </div>
                 </div>
             `;
             container.appendChild(card);
+
+            const media = await getMediaData(video);
+            const img = card.querySelector(".thumb-img");
+            const icon = card.querySelector(".play-btn i");
+            if(img) img.src = media.thumb;
+            if(icon) icon.className = media.icon;
         });
     }
 }
 
 let dadosPartidaAtual = [];
 
-// Abre a tela de Ranking
 function abrirRanking(video) {
-    // Transição de telas
     document.getElementById("view-videos").style.display = "none";
     document.getElementById("view-ranking").style.display = "block";
     document.getElementById("page-title").innerText = video.titulo;
     
-    // Reset Stats
-    document.getElementById("lista-jogadores").innerHTML = `
-        <div style="padding:40px; text-align:center; color:#666;">
-            <i class="fas fa-circle-notch fa-spin fa-2x"></i><br>Carregando dados...
-        </div>`;
+    const containerLista = document.getElementById("lista-jogadores");
+    containerLista.innerHTML = `<div style="padding:40px; text-align:center; color:#666;"><i class="fas fa-circle-notch fa-spin fa-2x"></i><br>Buscando arquivo...</div>`;
 
-    // Botão Assistir no Header
+    // Botão Assistir
     const searchWrapper = document.querySelector('.search-wrapper');
     const btnExistente = document.getElementById('btn-watch-action');
     if(btnExistente) btnExistente.remove();
@@ -124,46 +113,69 @@ function abrirRanking(video) {
     if(video.videoUrl) {
         const btn = document.createElement('button');
         btn.id = 'btn-watch-action';
-        btn.className = 'nav-btn active'; // Reutilizando estilo
+        btn.className = 'nav-btn active'; 
         btn.style.width = 'auto';
         btn.style.marginRight = '20px';
         btn.innerHTML = `<i class="fas fa-play"></i> Assistir`;
         btn.onclick = () => window.open(video.videoUrl, '_blank');
-        
-        searchWrapper.parentNode.insertBefore(btn, searchWrapper);
+        if(searchWrapper && searchWrapper.parentNode) searchWrapper.parentNode.insertBefore(btn, searchWrapper);
     }
 
-    // Fetch Dados
+    // --- CARREGAMENTO DO JSON COM DIAGNÓSTICO ---
     fetch(video.arquivo)
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                // Erro HTTP (ex: 404)
+                throw new Error(`Arquivo não encontrado (${res.status}). Verifique se "${video.arquivo}" existe.`);
+            }
+            return res.json();
+        })
         .then(json => {
+            if(!json.placar) throw new Error("O arquivo JSON existe, mas não tem a lista 'placar'.");
             dadosPartidaAtual = json.placar;
             renderizarTabela(dadosPartidaAtual);
             
-            // Atualiza Stats do Header
+            // Atualiza Topo
             document.getElementById("total-players-count").innerText = dadosPartidaAtual.length;
-            const topKiller = dadosPartidaAtual.reduce((prev, current) => (prev.kills > current.kills) ? prev : current);
-            document.getElementById("top-kill-count").innerText = `${topKiller.kills} (${topKiller.nome})`;
+            if(dadosPartidaAtual.length > 0) {
+                const top1 = dadosPartidaAtual[0]; // Assume que o 1º é o top
+                document.getElementById("top-kill-count").innerText = `${top1.kills} (${top1.nome})`;
+            }
         })
         .catch(err => {
             console.error(err);
-            document.getElementById("lista-jogadores").innerHTML = "Erro ao carregar.";
+            // MOSTRA O ERRO NA TELA PRO USUÁRIO VER
+            containerLista.innerHTML = `
+                <div style="padding:30px; text-align:center; color:#ff5555; background:rgba(255,0,0,0.1); border-radius:10px;">
+                    <i class="fas fa-bug fa-2x"></i><br>
+                    <strong>Erro ao carregar dados:</strong><br>
+                    ${err.message}<br><br>
+                    <small>Dica: Verifique o nome do arquivo na pasta 'dados'.</small>
+                </div>`;
         });
 }
 
 function renderizarTabela(lista) {
     const container = document.getElementById("lista-jogadores");
     container.innerHTML = "";
+    
+    if(!lista || lista.length === 0) {
+        container.innerHTML = "<p style='padding:20px; text-align:center'>Lista vazia.</p>"; return;
+    }
+
+    // Otimização para 25k jogadores (Fragment + Slice se necessário)
+    // Mostra os primeiros 500 para não travar, o resto carrega se pesquisar
+    const maxShow = 500; 
+    const listaVisual = lista.slice(0, maxShow); 
+    
     const frag = document.createDocumentFragment();
 
-    lista.forEach(p => {
+    listaVisual.forEach(p => {
         const row = document.createElement("div");
         row.className = `linha-jogador rank-${p.posicao}`;
         if(p.posicao <= 3) row.classList.add(`top-3`);
-        
         row.onclick = () => abrirPerfil(p.nome);
 
-        // Status Badge
         let statusHtml = `<span>Sobrevivente</span>`;
         if(p.posicao === 1) statusHtml = `<span>🏆 Campeão</span>`;
         else if(p.posicao <= 10) statusHtml = `<span>🔥 Top 10</span>`;
@@ -179,102 +191,81 @@ function renderizarTabela(lista) {
         `;
         frag.appendChild(row);
     });
+    
     container.appendChild(frag);
+
+    if(lista.length > maxShow) {
+        const aviso = document.createElement("div");
+        aviso.style.padding = "15px";
+        aviso.style.textAlign = "center";
+        aviso.style.color = "#666";
+        aviso.innerHTML = `Exibindo top ${maxShow}. Use a pesquisa para ver mais.`;
+        container.appendChild(aviso);
+    }
 }
 
-// --- PERFIL DO JOGADOR ---
+// --- PERFIL ---
 async function abrirPerfil(nome) {
     const modal = document.getElementById("modal-perfil");
     modal.style.display = "flex";
-    
-    // Dados Básicos
     document.getElementById("perfil-nome").innerText = nome;
     document.getElementById("perfil-avatar").innerHTML = gerarHtmlAvatar(nome, "", true);
 
-    // Calcular Stats Globais
-    let totalKills = 0, totalWins = 0, matches = 0;
     const historyContainer = document.getElementById("perfil-historico");
-    historyContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#666"><i class="fas fa-spinner fa-spin"></i> Analisando...</div>`;
+    historyContainer.innerHTML = `<div style="text-align:center; padding:20px"><i class="fas fa-spinner fa-spin"></i></div>`;
 
+    let kills=0, wins=0, matches=0;
     let htmlHistory = "";
-    
-    // Busca paralela em todos os JSONs
-    const promises = LISTA_DE_VIDEOS.map(v => fetch(v.arquivo).then(r => r.ok ? r.json() : null));
+
+    const promises = LISTA_DE_VIDEOS.map(v => fetch(v.arquivo).then(r => r.ok ? r.json() : null).catch(()=>null));
     const results = await Promise.all(promises);
 
     results.forEach((data, idx) => {
-        if(!data) return;
-        const player = data.placar.find(p => p.nome === nome);
-        if(player) {
-            matches++;
-            totalKills += player.kills;
-            if(player.posicao === 1) totalWins++;
-
-            const isWin = player.posicao === 1;
-            const rankClass = isWin ? "rank-gold" : "";
-            const icon = isWin ? "fa-trophy" : "fa-crosshairs";
-
+        if(!data || !data.placar) return;
+        const p = data.placar.find(x => x.nome === nome);
+        if(p) {
+            matches++; kills += p.kills;
+            if(p.posicao === 1) wins++;
+            const icon = p.posicao===1 ? "fa-trophy" : "fa-crosshairs";
+            const colorClass = p.posicao===1 ? "rank-gold" : "";
+            
             htmlHistory += `
                 <div class="hist-item">
                     <div>
                         <div style="font-weight:600; font-size:12px; color:#fff">${LISTA_DE_VIDEOS[idx].titulo}</div>
-                        <div style="font-size:11px; color:#888"><i class="fas ${icon}"></i> ${player.kills} Kills</div>
+                        <div style="font-size:11px; color:#888"><i class="fas ${icon}"></i> ${p.kills} Kills</div>
                     </div>
-                    <div class="hist-rank ${rankClass}">#${player.posicao}</div>
-                </div>
-            `;
+                    <div class="hist-rank ${colorClass}">#${p.posicao}</div>
+                </div>`;
         }
     });
 
-    // Atualiza UI
-    document.getElementById("stat-vitorias").innerText = totalWins;
-    document.getElementById("stat-kills").innerText = totalKills;
+    document.getElementById("stat-vitorias").innerText = wins;
+    document.getElementById("stat-kills").innerText = kills;
     document.getElementById("stat-partidas").innerText = matches;
-    
-    // Badge Dinâmica
-    let badgeText = "Recruta";
-    if(totalWins > 0) badgeText = "Lenda";
-    else if(totalKills > 50) badgeText = "Exterminador";
-    else if(matches > 5) badgeText = "Veterano";
-    
-    document.getElementById("perfil-badge").innerText = badgeText;
+    document.getElementById("perfil-badge").innerText = wins > 0 ? "Lenda" : (matches > 5 ? "Veterano" : "Recruta");
     historyContainer.innerHTML = htmlHistory || "<p style='text-align:center; padding:20px'>Sem histórico.</p>";
 }
 
-function fecharPerfil() {
-    document.getElementById("modal-perfil").style.display = "none";
+function fecharPerfil() { document.getElementById("modal-perfil").style.display = "none"; }
+function voltarHome() {
+    document.getElementById("view-ranking").style.display = "none";
+    document.getElementById("view-videos").style.display = "grid";
+    document.getElementById("page-title").innerText = "Últimas Batalhas";
+    const btn = document.getElementById('btn-watch-action'); if(btn) btn.remove();
 }
-
-// Filtro da Barra de Pesquisa
 function filtrarListaGlobal() {
     const termo = document.getElementById("globalSearch").value.toLowerCase();
-    
-    // Se estiver na tela de ranking, filtra a tabela
     if(document.getElementById("view-ranking").style.display === "block") {
-        const filtrados = dadosPartidaAtual.filter(p => p.nome.toLowerCase().includes(termo));
-        renderizarTabela(filtrados);
-    } 
-    // Se estiver na home, filtra os vídeos (Opcional, mas legal)
-    else {
-        const cards = document.querySelectorAll(".card-video");
-        cards.forEach(card => {
+        if(dadosPartidaAtual) {
+            const filtrados = dadosPartidaAtual.filter(p => p.nome.toLowerCase().includes(termo));
+            renderizarTabela(filtrados);
+        }
+    } else {
+        document.querySelectorAll(".card-video").forEach(card => {
             const title = card.querySelector(".card-title").innerText.toLowerCase();
             card.style.display = title.includes(termo) ? "block" : "none";
         });
     }
 }
-
-function voltarHome() {
-    document.getElementById("view-ranking").style.display = "none";
-    document.getElementById("view-videos").style.display = "grid";
-    document.getElementById("page-title").innerText = "Últimas Batalhas";
-    
-    // Remove botão assistir
-    const btn = document.getElementById('btn-watch-action');
-    if(btn) btn.remove();
-}
-
-// Fecha modal clicando fora
-document.getElementById("modal-perfil").onclick = (e) => {
-    if(e.target.id === "modal-perfil") fecharPerfil();
-}
+document.getElementById("modal-perfil").onclick = (e) => { if(e.target.id === "modal-perfil") fecharPerfil(); }
