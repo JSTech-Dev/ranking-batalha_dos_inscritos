@@ -10,6 +10,7 @@ const LISTA_DE_VIDEOS = [
         // --- AQUI É O PULO DO GATO ---
         // Se você preencher isso aqui, o site carrega INSTANTANEAMENTE
         // Se deixar vazio (""), ele tenta buscar sozinho.
-        thumb: "https://p16-sign-va.tiktokcdn.com/tos-maliva-p-0068/o48eDGI... (link da imagem)" 
+        thumb: "" 
     }
 ];
+
