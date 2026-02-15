@@ -1,4 +1,4 @@
-// ==================== APP.JS MOBILE (FINAL: LISTA DE GUERREIROS) ====================
+// ==================== APP.JS MOBILE (FINAL: LISTA DE GUERREIROS COM ANÚNCIO INTERCALADO) ====================
 
 // --- VARIÁVEIS GLOBAIS ---
 let listaCompletaGlobal = []; 
@@ -14,7 +14,6 @@ function extrairIdYoutube(url) {
 }
 
 async function getMediaData(video) {
-    // MUDANÇA AQUI: O texto da imagem padrão agora é "Lista de Guerreiros"
     const placeholder = "https://placehold.co/600x400/1a1b26/00ffcc?text=Lista+de+Guerreiros";
     
     const dados = {
@@ -97,7 +96,6 @@ function carregarVideos() {
             card.className = "card-video";
             card.onclick = () => abrirRanking(video);
             
-            // Usando placeholder com texto novo
             card.innerHTML = `
                 <div class="thumb-container">
                     <img src="https://placehold.co/600x400/1a1b26/FFF?text=Carregando..." class="thumb-img" alt="Lista de Guerreiros">
@@ -150,8 +148,12 @@ function abrirRanking(video) {
             </button>`;
     }
 
-    const listaContainer = document.getElementById("lista-jogadores");
-    listaContainer.innerHTML = `<div style="text-align:center; padding:50px; color:#888;"><i class="fas fa-circle-notch fa-spin fa-2x"></i><br><br>Carregando guerreiros...</div>`;
+    // ALTERAÇÃO: Mensagem de carregamento vai para a div de cima
+    const listaTopo = document.getElementById("lista-jogadores-topo");
+    const listaResto = document.getElementById("lista-jogadores-resto");
+    
+    listaTopo.innerHTML = `<div style="text-align:center; padding:50px; color:#888;"><i class="fas fa-circle-notch fa-spin fa-2x"></i><br><br>Carregando guerreiros...</div>`;
+    listaResto.innerHTML = ""; // Deixa a de baixo vazia enquanto carrega
 
     fetch(video.arquivo)
         .then(res => {
@@ -169,7 +171,7 @@ function abrirRanking(video) {
         })
         .catch(err => {
             console.error(err);
-            listaContainer.innerHTML = `
+            listaTopo.innerHTML = `
                 <div style="text-align:center; padding:30px; color:#ff5555; background:rgba(255,0,0,0.1); border-radius:12px; margin:20px;">
                     <i class="fas fa-exclamation-triangle fa-2x"></i><br><br>
                     <strong>Arquivo não encontrado</strong><br>
@@ -181,8 +183,9 @@ function abrirRanking(video) {
 }
 
 function iniciarRenderizacao() {
-    const container = document.getElementById("lista-jogadores");
-    container.innerHTML = ""; 
+    // ALTERAÇÃO: Limpa as duas listas novas
+    document.getElementById("lista-jogadores-topo").innerHTML = ""; 
+    document.getElementById("lista-jogadores-resto").innerHTML = ""; 
     itensRenderizados = 0;    
     carregarMaisItens();      
 }
@@ -191,14 +194,17 @@ function carregarMaisItens() {
     if (itensRenderizados >= listaCompletaGlobal.length) return; 
     
     carregandoBloqueio = true; 
-    const container = document.getElementById("lista-jogadores");
+    
+    // ALTERAÇÃO: Puxa as duas listas
+    const containerTopo = document.getElementById("lista-jogadores-topo");
+    const containerResto = document.getElementById("lista-jogadores-resto");
     
     const fim = Math.min(itensRenderizados + LOTE_CARREGAMENTO, listaCompletaGlobal.length);
     const lote = listaCompletaGlobal.slice(itensRenderizados, fim);
-    
-    const frag = document.createDocumentFragment();
 
-    lote.forEach(p => {
+    lote.forEach((p, indexLote) => {
+        const indexReal = itensRenderizados + indexLote; // Precisamos saber a posição real do jogador na lista completa
+
         const row = document.createElement("div");
         row.className = `player-row ${p.posicao === 1 ? 'top-1' : ''}`;
         row.onclick = () => abrirPerfil(p.nome);
@@ -216,10 +222,15 @@ function carregarMaisItens() {
             </div>
             <div class="p-kills">${p.kills}</div>
         `;
-        frag.appendChild(row);
+        
+        // ALTERAÇÃO: Se for um dos 3 primeiros, vai pra cima do anúncio. Se não, vai pra baixo.
+        if (indexReal < 3) {
+            containerTopo.appendChild(row);
+        } else {
+            containerResto.appendChild(row);
+        }
     });
 
-    container.appendChild(frag);
     itensRenderizados = fim;
     carregandoBloqueio = false; 
     
@@ -230,7 +241,7 @@ function carregarMaisItens() {
         const loadingDiv = document.createElement("div");
         loadingDiv.id = "loading-scroll";
         loadingDiv.innerHTML = `<div style="text-align:center; padding:10px; color:#666; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> Carregando mais...</div>`;
-        container.appendChild(loadingDiv);
+        containerResto.appendChild(loadingDiv); // O loading de rolagem agora fica na caixa de baixo
     }
 }
 
@@ -300,11 +311,15 @@ function filtrarListaGlobal() {
 
     if(rankingVisible) {
         const filtrados = listaCompletaGlobal.filter(p => p.nome.toLowerCase().includes(termo));
-        const container = document.getElementById("lista-jogadores");
-        container.innerHTML = "";
-        const frag = document.createDocumentFragment();
         
-        filtrados.slice(0, 100).forEach(p => {
+        // ALTERAÇÃO: Na busca, ele também separa para não bugar o anúncio
+        const containerTopo = document.getElementById("lista-jogadores-topo");
+        const containerResto = document.getElementById("lista-jogadores-resto");
+        
+        containerTopo.innerHTML = "";
+        containerResto.innerHTML = "";
+        
+        filtrados.slice(0, 100).forEach((p, index) => {
              const row = document.createElement("div");
              row.className = `player-row ${p.posicao === 1 ? 'top-1' : ''}`;
              row.onclick = () => abrirPerfil(p.nome);
@@ -316,9 +331,13 @@ function filtrarListaGlobal() {
                     <div class="p-detail">Resultado da busca</div>
                 </div>
                 <div class="p-kills">${p.kills}</div>`;
-             frag.appendChild(row);
+             
+             if (index < 3) {
+                 containerTopo.appendChild(row);
+             } else {
+                 containerResto.appendChild(row);
+             }
         });
-        container.appendChild(frag);
     } else {
         document.querySelectorAll(".card-video").forEach(card => {
             const txt = card.innerText.toLowerCase();
